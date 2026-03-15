@@ -210,18 +210,6 @@
     .bar-fill{height:100%;background:var(--gold-d);border-radius:3px;transition:width .5s;}
     .bar-val{width:28px;text-align:right;color:var(--text-d);font-size:11px;flex-shrink:0;}
 
-    /* calendar */
-    .cal-wrap{overflow-x:auto;scrollbar-width:none;}
-    .cal-wrap::-webkit-scrollbar{display:none;}
-    .cal-grid{display:flex;gap:3px;min-width:max-content;padding:4px 0;}
-    .cal-week{display:flex;flex-direction:column;gap:3px;}
-    .cal-day{width:13px;height:13px;border-radius:2px;background:var(--border);transition:background .2s;}
-    .cal-day.c1{background:#1a4a24;}
-    .cal-day.c2{background:#256e32;}
-    .cal-day.c3{background:#32a046;}
-    .cal-day.c4{background:#40cc58;}
-    .cal-months{display:flex;gap:3px;min-width:max-content;margin-bottom:4px;}
-    .cal-month-lbl{font-size:10px;color:var(--text-d);width:52px;}
 
     /* top list */
     .top-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
@@ -397,11 +385,7 @@
   <div class="page" id="page-stats">
     <div class="stats-body">
       <div class="stats-grid" id="stats-grid"></div>
-      <div class="stats-sec">
-        <h3>Aktivität (letzte 12 Monate)</h3>
-        <div class="cal-months" id="cal-months"></div>
-        <div class="cal-wrap"><div class="cal-grid" id="cal-grid"></div></div>
-      </div>
+
       <div class="stats-sec">
         <h3>Meistgehörte Folgen</h3>
         <div id="top-list"></div>
@@ -1061,68 +1045,10 @@ function renderStats() {
     <div class="stat-card"><div class="big">${totalListens}</div><div class="lbl">Hördurchgänge</div></div>
     <div class="stat-card"><div class="big">${totalHrs}</div><div class="lbl">Stunden gehört</div></div>`;
 
-  renderCalendar();
   renderTopList();
   renderRatingDist();
 }
 
-function renderCalendar() {
-  // Build map of date -> count
-  const counts = {};
-  EPISODES.forEach(e => {
-    getU(e.id).listenHistory.forEach(entry => {
-      counts[entry.date] = (counts[entry.date] || 0) + 1;
-    });
-  });
-
-  const today = new Date();
-  const start = new Date(today);
-  start.setFullYear(start.getFullYear() - 1);
-  // Go to start of that week (Monday)
-  while (start.getDay() !== 1) start.setDate(start.getDate() - 1);
-
-  const weeks = [];
-  let week = [];
-  let d = new Date(start);
-  const monthLabels = [];
-  let lastMonth = -1;
-
-  while (d <= today) {
-    const ds = d.toISOString().split('T')[0];
-    const c = counts[ds] || 0;
-    let cls = 'cal-day';
-    if (c === 1) cls += ' c1';
-    else if (c === 2) cls += ' c2';
-    else if (c >= 3) cls += ' c3';
-    week.push(`<div class="${cls}" title="${ds}: ${c} Folge(n)"></div>`);
-
-    if (d.getMonth() !== lastMonth && d.getDate() <= 7) {
-      const mn = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-      monthLabels.push({ week: weeks.length, label: mn[d.getMonth()] });
-      lastMonth = d.getMonth();
-    }
-
-    if (d.getDay() === 0 || d >= today) { // Sunday or last day
-      // Pad to 7
-      while (week.length < 7) week.unshift('<div class="cal-day"></div>');
-      weeks.push(week);
-      week = [];
-    }
-    d.setDate(d.getDate() + 1);
-  }
-
-  const grid = document.getElementById('cal-grid');
-  grid.innerHTML = weeks.map(w => `<div class="cal-week">${w.join('')}</div>`).join('');
-
-  // Month labels
-  const ml = document.getElementById('cal-months');
-  let labHtml = '';
-  monthLabels.forEach((m, i) => {
-    const skip = i === 0 ? m.week : m.week - monthLabels[i-1].week;
-    labHtml += `<div class="cal-month-lbl" style="width:${skip*16}px">${m.label}</div>`;
-  });
-  ml.innerHTML = labHtml;
-}
 
 function renderTopList() {
   // Count listens per episode
