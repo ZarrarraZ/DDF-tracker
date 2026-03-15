@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#080400">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Drei ???">
+  <link rel="manifest" href="manifest.json">
+  <title>Die drei ??? – Meine Sammlung</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #080400;
+      --bg2:     #100800;
+      --bg3:     #1a0e02;
+      --card:    #140a00;
+      --card2:   #1e1206;
+      --gold:    #c8922a;
+      --gold-l:  #e8b84b;
+      --gold-d:  #7a5518;
+      --gold-xs: #3d2a0c;
+      --red:     #a02820;
+      --green:   #2a6e36;
+      --green-l: #38a050;
+      --blue:    #2a5a8a;
+      --text:    #ede0c4;
+      --text-d:  #9a8060;
+      --text-xs: #5a4830;
+      --border:  #281800;
+      --border2: #3a2510;
+      --star:    #e8b84b;
+      --nav-h:   58px;
+      --r:       10px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+    html{height:100%;background:var(--bg);}
+    body{height:100%;overflow:hidden;color:var(--text);font-family:'Outfit',sans-serif;font-size:15px;display:flex;flex-direction:column;background:var(--bg);}
+
+    /* ── HEADER ── */
+    #hdr{
+      background:linear-gradient(180deg,#040200 0%,var(--bg2) 100%);
+      border-bottom:1px solid var(--gold-d);padding:10px 16px 8px;flex-shrink:0;
+      box-shadow:0 2px 24px rgba(0,0,0,.8);z-index:50;
+    }
+    .hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+    .logo{font-family:'Playfair Display',serif;font-weight:900;font-size:19px;color:var(--gold-l);letter-spacing:.5px;line-height:1;}
+    .logo small{display:block;font-size:9px;font-weight:400;color:var(--text-d);font-family:'Outfit',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-top:1px;}
+    .hdr-stats{display:flex;gap:14px;}
+    .hdr-stat .n{font-size:17px;font-weight:700;color:var(--gold-l);text-align:center;}
+    .hdr-stat .l{font-size:9px;color:var(--text-d);text-transform:uppercase;letter-spacing:.8px;text-align:center;}
+    .hdr-prog{height:2px;background:var(--border2);border-radius:1px;overflow:hidden;}
+    .hdr-prog-fill{height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold-l));border-radius:1px;transition:width .6s ease;}
+
+    /* ── PAGES ── */
+    #pages{flex:1;overflow:hidden;position:relative;}
+    .page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding-bottom:calc(var(--nav-h)+8px);}
+    .page.active{display:block;}
+
+    /* ── NAV ── */
+    #nav{
+      position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);
+      background:var(--bg2);border-top:1px solid var(--border2);
+      display:flex;z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,.7);
+    }
+    .nb{
+      flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:3px;cursor:pointer;color:var(--text-d);border:none;background:none;
+      font-family:'Outfit',sans-serif;font-size:9px;letter-spacing:.5px;text-transform:uppercase;
+      transition:color .15s;
+    }
+    .nb svg{width:21px;height:21px;transition:transform .15s;}
+    .nb.on{color:var(--gold-l);}
+    .nb.on svg{transform:scale(1.12);}
+
+    /* ── SEARCH + FILTERS ── */
+    .search-bar{padding:9px 12px;position:sticky;top:0;background:var(--bg2);z-index:10;border-bottom:1px solid var(--border);}
+    .search-inner{display:flex;gap:0;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
+    .search-inner svg{width:16px;height:16px;color:var(--text-d);margin:auto 10px;}
+    .search-input{flex:1;background:none;border:none;color:var(--text);padding:9px 12px 9px 0;font-size:14px;font-family:'Outfit',sans-serif;outline:none;}
+    .filter-row{padding:6px 12px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);}
+    .filter-row::-webkit-scrollbar{display:none;}
+    .chip{white-space:nowrap;padding:4px 11px;border-radius:20px;border:1px solid var(--border2);font-size:12px;color:var(--text-d);cursor:pointer;background:var(--bg3);transition:all .15s;user-select:none;}
+    .chip.on{background:var(--gold-d);border-color:var(--gold);color:var(--text);}
+
+    /* ── TABLE ── */
+    .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    table{width:100%;border-collapse:collapse;min-width:500px;}
+    thead{position:sticky;top:0;z-index:5;background:var(--bg3);}
+    th{padding:7px 10px;font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text-d);text-align:left;border-bottom:1px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none;}
+    th:hover{color:var(--gold);}
+    th.sorted{color:var(--gold);}
+    td{padding:6px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+    tr{cursor:pointer;transition:background .12s;}
+    tr:hover td{background:var(--card2);}
+    tr.heard td{background:rgba(42,110,54,.07);}
+    tr.heard:hover td{background:rgba(42,110,54,.13);}
+    .td-nr{font-weight:700;color:var(--gold);min-width:32px;}
+    .td-title{font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .badge{display:inline-block;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:600;}
+    .badge-n{background:rgba(80,100,180,.12);color:#7a9acc;border:1px solid rgba(80,100,180,.25);}
+    .badge-s{background:rgba(200,146,42,.12);color:var(--gold);border:1px solid var(--gold-d);}
+    .td-dur{color:var(--text-d);white-space:nowrap;font-size:11px;}
+    .td-check{text-align:center;}
+    .ck{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border2);color:transparent;font-size:11px;transition:all .2s;}
+    .ck.on{background:var(--green);border-color:var(--green-l);color:#fff;}
+    .mini-stars{display:inline-flex;gap:1px;}
+    .ms{font-size:10px;color:var(--border2);}
+    .ms.on{color:var(--star);}
+    .ms.h{background:linear-gradient(90deg,var(--star) 50%,var(--border2) 50%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    #list-empty{text-align:center;padding:40px 20px;color:var(--text-d);font-size:14px;}
+
+    /* ── DETAIL ── */
+    .back-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;color:var(--gold);font-size:14px;font-weight:500;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:10;}
+    .detail-hero{display:flex;gap:14px;padding:14px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
+    .cover-wrap{width:120px;height:120px;flex-shrink:0;border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border2);background:var(--bg3);position:relative;}
+    .cover-img{width:100%;height:100%;object-fit:cover;}
+    .cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:28px;color:var(--gold-d);}
+    .cover-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-d);}
+    .detail-info{flex:1;min-width:0;}
+    .detail-nr{font-size:10px;color:var(--text-d);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px;}
+    .detail-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--gold-l);line-height:1.2;margin-bottom:6px;}
+    .detail-meta{font-size:12px;color:var(--text-d);line-height:1.9;}
+    .detail-meta strong{color:var(--text);}
+    .detail-body{padding:0 16px 16px;}
+    .dsec{margin-bottom:16px;padding-top:16px;}
+    .dsec h3{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-d);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+
+    /* heard toggle */
+    .heard-row{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border2);border-radius:var(--r);padding:11px 14px;cursor:pointer;}
+    .heard-lbl{font-weight:500;font-size:14px;}
+    .pill{width:42px;height:22px;border-radius:11px;background:var(--border2);position:relative;transition:background .2s;flex-shrink:0;}
+    .pill::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;}
+    .pill.on{background:var(--green);}
+    .pill.on::after{transform:translateX(20px);}
+    .date-row{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--card);border:1px solid var(--border2);border-radius:var(--r);margin-top:6px;}
+    .date-row label{font-size:12px;color:var(--text-d);flex-shrink:0;}
+    .date-row input{background:none;border:none;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;flex:1;outline:none;}
+    .date-row input::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) saturate(2) hue-rotate(10deg);cursor:pointer;}
+
+    /* listen again */
+    .listen-again-btn{
+      width:100%;background:var(--gold-xs);border:1px solid var(--gold-d);border-radius:var(--r);
+      color:var(--gold-l);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;
+      padding:10px;cursor:pointer;margin-top:8px;transition:background .2s;
+    }
+    .listen-again-btn:active{background:var(--gold-d);}
+
+    /* listen history */
+    .history-entry{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+    .history-entry:last-child{border-bottom:none;}
+    .he-date{color:var(--text-d);}
+    .he-del{background:none;border:none;color:var(--text-xs);cursor:pointer;font-size:16px;padding:2px 6px;}
+    .he-del:hover{color:var(--red);}
+
+    /* rating */
+    .rating-opts{display:flex;flex-wrap:wrap;gap:6px;}
+    .ropt{padding:5px 11px;border-radius:20px;border:1px solid var(--border2);font-size:12px;color:var(--text-d);cursor:pointer;background:var(--bg3);transition:all .15s;}
+    .ropt.on{background:var(--gold-d);border-color:var(--gold);color:var(--text);}
+
+    /* tags */
+    .tag-chips{display:flex;flex-wrap:wrap;gap:6px;}
+    .tag-chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border2);font-size:12px;color:var(--text-d);cursor:pointer;background:var(--bg3);}
+    .tag-chip.on{border-color:var(--gold);color:var(--gold-l);background:rgba(200,146,42,.1);}
+
+    /* note */
+    .note-area{width:100%;background:var(--card);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:10px 12px;font-family:'Outfit',sans-serif;font-size:14px;resize:none;outline:none;min-height:75px;line-height:1.5;}
+    .note-area:focus{border-color:var(--gold-d);}
+
+    /* spotify */
+    .spotify-btn{display:flex;align-items:center;gap:8px;background:#1DB954;border:none;border-radius:var(--r);color:#000;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;padding:10px 16px;cursor:pointer;width:100%;justify-content:center;text-decoration:none;}
+
+    /* save btn */
+    .save-btn{width:100%;background:var(--gold-d);border:none;border-radius:var(--r);color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;padding:11px;cursor:pointer;margin-top:8px;transition:background .2s;}
+    .save-btn:active{background:var(--gold);}
+
+    /* ── HISTORY PAGE ── */
+    .hist-header{padding:14px 16px;border-bottom:1px solid var(--border);}
+    .hist-header h2{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold-l);}
+    .hist-header p{font-size:12px;color:var(--text-d);margin-top:3px;}
+    .hist-month{padding:10px 16px 0;}
+    .hist-month-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-d);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+    .hist-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+    .hist-item:last-child{border-bottom:none;}
+    .hist-cover{width:40px;height:40px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--bg3);border:1px solid var(--border2);}
+    .hist-cover img{width:100%;height:100%;object-fit:cover;}
+    .hist-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold-d);font-family:'Playfair Display',serif;}
+    .hist-info{flex:1;min-width:0;}
+    .hist-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .hist-sub{font-size:11px;color:var(--text-d);margin-top:2px;}
+    .hist-date{font-size:12px;color:var(--text-d);flex-shrink:0;}
+    #hist-empty{text-align:center;padding:40px 20px;color:var(--text-d);font-size:14px;}
+
+    /* ── STATS PAGE ── */
+    .stats-body{padding:14px;}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+    .stat-card{background:var(--card);border:1px solid var(--border2);border-radius:var(--r);padding:13px;text-align:center;}
+    .stat-card .big{font-size:26px;font-weight:700;color:var(--gold-l);font-family:'Playfair Display',serif;}
+    .stat-card .lbl{font-size:10px;color:var(--text-d);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;}
+    .stats-sec{margin-bottom:18px;}
+    .stats-sec h3{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-d);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+    .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:12px;}
+    .bar-lbl{width:120px;color:var(--text-d);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+    .bar-bg{flex:1;height:7px;background:var(--border2);border-radius:3px;overflow:hidden;}
+    .bar-fill{height:100%;background:var(--gold-d);border-radius:3px;transition:width .5s;}
+    .bar-val{width:28px;text-align:right;color:var(--text-d);font-size:11px;flex-shrink:0;}
+
+    /* calendar */
+    .cal-wrap{overflow-x:auto;scrollbar-width:none;}
+    .cal-wrap::-webkit-scrollbar{display:none;}
+    .cal-grid{display:flex;gap:3px;min-width:max-content;padding:4px 0;}
+    .cal-week{display:flex;flex-direction:column;gap:3px;}
+    .cal-day{width:13px;height:13px;border-radius:2px;background:var(--border);transition:background .2s;}
+    .cal-day.c1{background:#1a4a24;}
+    .cal-day.c2{background:#256e32;}
+    .cal-day.c3{background:#32a046;}
+    .cal-day.c4{background:#40cc58;}
+    .cal-months{display:flex;gap:3px;min-width:max-content;margin-bottom:4px;}
+    .cal-month-lbl{font-size:10px;color:var(--text-d);width:52px;}
+
+    /* top list */
+    .top-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+    .top-item:last-child{border-bottom:none;}
+    .top-nr{font-size:14px;font-weight:700;color:var(--gold);width:22px;text-align:center;flex-shrink:0;}
+    .top-cover{width:36px;height:36px;border-radius:5px;overflow:hidden;flex-shrink:0;background:var(--bg3);}
+    .top-cover img{width:100%;height:100%;object-fit:cover;}
+    .top-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--gold-d);font-family:'Playfair Display',serif;}
+    .top-info{flex:1;min-width:0;}
+    .top-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .top-sub{font-size:11px;color:var(--text-d);margin-top:1px;}
+    .top-count{font-size:12px;color:var(--gold);font-weight:600;flex-shrink:0;}
+
+    /* ── FINDER ── */
+    .finder-body{padding:16px;}
+    .finder-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold-l);margin-bottom:4px;}
+    .finder-sub{font-size:13px;color:var(--text-d);margin-bottom:16px;}
+    .fsec{background:var(--card);border:1px solid var(--border2);border-radius:var(--r);padding:13px;margin-bottom:10px;}
+    .fsec h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-d);margin-bottom:9px;}
+    .radio-grp{display:flex;flex-wrap:wrap;gap:7px;}
+    .ropt2{padding:6px 13px;border-radius:20px;border:1.5px solid var(--border2);font-size:13px;color:var(--text-d);cursor:pointer;transition:all .15s;}
+    .ropt2.on{background:var(--gold-d);border-color:var(--gold);color:var(--text);}
+    .range-row{display:flex;gap:8px;align-items:center;margin-top:8px;}
+    .range-row input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px;font-size:14px;font-family:'Outfit',sans-serif;outline:none;}
+    .find-btn{width:100%;background:var(--gold-d);border:none;border-radius:var(--r);color:var(--text);font-family:'Outfit',sans-serif;font-size:15px;font-weight:600;padding:13px;cursor:pointer;transition:background .2s;margin-top:4px;}
+    .find-btn:active{background:var(--gold);}
+    .finder-result{background:var(--card);border:2px solid var(--gold-d);border-radius:var(--r);padding:16px;margin-top:14px;text-align:center;display:none;}
+    .finder-result.show{display:block;}
+    .fr-nr{font-size:11px;color:var(--text-d);margin-bottom:4px;}
+    .fr-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold-l);margin-bottom:8px;}
+    .fr-meta{font-size:12px;color:var(--text-d);margin-bottom:12px;}
+    .fr-open{background:var(--gold-d);border:none;border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;padding:8px 20px;cursor:pointer;}
+
+    /* ── GITHUB SYNC ── */
+    .gh-status{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);margin-bottom:8px;font-size:13px;}
+    .gh-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .gh-dot.ok{background:#38a050;}
+    .gh-dot.err{background:#e05050;}
+    .gh-dot.syncing{background:var(--gold);animation:pulse 1s infinite;}
+    .gh-dot.none{background:var(--text-xs);}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+    .gh-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:9px 12px;font-family:'Outfit',sans-serif;font-size:13px;outline:none;margin-bottom:6px;}
+    .gh-input:focus{border-color:var(--gold-d);}
+    .gh-input::placeholder{color:var(--text-xs);}
+    .gh-row{display:flex;gap:6px;margin-bottom:6px;}
+    .gh-row .gh-input{margin-bottom:0;}
+    .gh-hint{font-size:11px;color:var(--text-d);line-height:1.5;margin-bottom:8px;}
+    .gh-hint a{color:var(--gold);text-decoration:none;}
+
+    /* ── SETTINGS ── */
+    .settings-body{padding:16px;}
+    .ssec{margin-bottom:20px;}
+    .ssec h3{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-d);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+    .sbtn{width:100%;background:var(--card);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;padding:12px 16px;cursor:pointer;text-align:left;margin-bottom:8px;display:flex;align-items:center;gap:10px;transition:background .15s;}
+    .sbtn:hover{background:var(--card2);}
+    .sbtn.danger{color:#e05050;border-color:#501010;}
+    .tag-add{display:flex;gap:6px;margin-top:8px;}
+    .tag-add input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px;font-size:13px;font-family:'Outfit',sans-serif;outline:none;}
+    .tag-add button{background:var(--gold-d);border:none;border-radius:8px;color:var(--text);padding:7px 13px;cursor:pointer;font-size:13px;}
+
+    /* ── MODAL (listen again confirm) ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;display:none;}
+    .modal-overlay.show{display:flex;}
+    .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px 14px 0 0;padding:20px 16px;width:100%;max-width:480px;margin:0 auto;}
+    .modal h3{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold-l);margin-bottom:6px;}
+    .modal p{font-size:13px;color:var(--text-d);margin-bottom:14px;}
+    .modal-date{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 12px;font-family:'Outfit',sans-serif;font-size:15px;outline:none;margin-bottom:12px;}
+    .modal-btns{display:flex;gap:8px;}
+    .modal-cancel{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text-d);font-family:'Outfit',sans-serif;font-size:14px;padding:10px;cursor:pointer;}
+    .modal-confirm{flex:2;background:var(--gold-d);border:none;border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;padding:10px;cursor:pointer;}
+
+    /* ── UTILS ── */
+    .toast{position:fixed;bottom:calc(var(--nav-h)+10px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 16px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:300;white-space:nowrap;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    .pg-sec-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold-l);padding:14px 16px 0;}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hdr-row">
+    <div class="logo">Die drei ???<small>Meine Sammlung</small></div>
+    <div class="hdr-stats">
+      <div class="hdr-stat"><div class="n" id="hdr-heard">0</div><div class="l">Gehört</div></div>
+      <div class="hdr-stat"><div class="n" id="hdr-total">0</div><div class="l">Gesamt</div></div>
+    </div>
+  </div>
+  <div class="hdr-prog"><div class="hdr-prog-fill" id="hdr-prog" style="width:0%"></div></div>
+</div>
+
+<!-- PAGES -->
+<div id="pages">
+
+  <!-- LIST -->
+  <div class="page active" id="page-list">
+    <div class="search-bar">
+      <div class="search-inner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" id="search-input" type="search" placeholder="Suche nach Titel, Nr, Jahr…" oninput="renderTable()">
+      </div>
+    </div>
+    <div class="filter-row" id="filter-row">
+      <div class="chip on" data-f="all" onclick="setFilter('all',this)">Alle</div>
+      <div class="chip" data-f="unheard" onclick="setFilter('unheard',this)">Nicht gehört</div>
+      <div class="chip" data-f="heard" onclick="setFilter('heard',this)">Gehört</div>
+      <div class="chip" data-f="rated" onclick="setFilter('rated',this)">Bewertet</div>
+      <div class="chip" data-f="normal" onclick="setFilter('normal',this)">Normal</div>
+      <div class="chip" data-f="spezial" onclick="setFilter('spezial',this)">Spezial</div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="main-table">
+        <thead><tr>
+          <th onclick="sortBy('nr')" id="th-nr"># <span id="si-nr"></span></th>
+          <th onclick="sortBy('title')" id="th-title">Titel <span id="si-title"></span></th>
+          <th onclick="sortBy('year')" id="th-year">Jahr <span id="si-year"></span></th>
+          <th onclick="sortBy('dur')" id="th-dur">Länge <span id="si-dur"></span></th>
+          <th onclick="sortBy('heard')" id="th-heard">✓ <span id="si-heard"></span></th>
+          <th onclick="sortBy('rating')" id="th-rating">★ <span id="si-rating"></span></th>
+        </tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+    <div id="list-empty" style="display:none">Keine Folgen gefunden.</div>
+  </div>
+
+  <!-- FINDER -->
+  <div class="page" id="page-finder">
+    <div class="finder-body">
+      <div class="finder-title">Folge finden</div>
+      <div class="finder-sub">Lass dich zu einer Folge leiten</div>
+      <div class="fsec"><h3>Pool</h3><div class="radio-grp">
+        <div class="ropt2 on" data-pool="all" onclick="setPool('all',this)">Alle</div>
+        <div class="ropt2" data-pool="unheard" onclick="setPool('unheard',this)">Nicht gehört</div>
+        <div class="ropt2" data-pool="heard" onclick="setPool('heard',this)">Gehört</div>
+      </div></div>
+      <div class="fsec"><h3>Typ</h3><div class="radio-grp">
+        <div class="ropt2 on" data-ftype="all" onclick="setFtype('all',this)">Alle</div>
+        <div class="ropt2" data-ftype="normal" onclick="setFtype('normal',this)">Normal</div>
+        <div class="ropt2" data-ftype="spezial" onclick="setFtype('spezial',this)">Spezial</div>
+      </div></div>
+      <div class="fsec"><h3>Min. Bewertung</h3><div class="radio-grp" id="finder-rating-opts">
+        <div class="ropt2 on" data-minr="0" onclick="setMinR(0,this)">Egal</div>
+        <div class="ropt2" data-minr="1" onclick="setMinR(1,this)">★ 1+</div>
+        <div class="ropt2" data-minr="2" onclick="setMinR(2,this)">★ 2+</div>
+        <div class="ropt2" data-minr="3" onclick="setMinR(3,this)">★ 3+</div>
+        <div class="ropt2" data-minr="4" onclick="setMinR(4,this)">★ 4+</div>
+        <div class="ropt2" data-minr="4.5" onclick="setMinR(4.5,this)">★ 4.5+</div>
+      </div></div>
+      <div class="fsec"><h3>Folgennummer (optional)</h3><div class="range-row">
+        <input type="number" id="finder-from" placeholder="Von" min="1" max="500">
+        <span style="color:var(--text-d)">–</span>
+        <input type="number" id="finder-to" placeholder="Bis" min="1" max="500">
+      </div></div>
+      <button class="find-btn" onclick="findEp()">🎲 Folge finden</button>
+      <div class="finder-result" id="finder-result">
+        <div class="fr-nr" id="fr-nr"></div>
+        <div class="fr-title" id="fr-title"></div>
+        <div class="fr-meta" id="fr-meta"></div>
+        <button class="fr-open" onclick="openFoundEp()">Details öffnen →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="page" id="page-history">
+    <div class="hist-header">
+      <h2>Hörverlauf</h2>
+      <p id="hist-total-text">Alle gehörten Folgen nach Datum</p>
+    </div>
+    <div id="hist-list"></div>
+    <div id="hist-empty" style="display:none">Noch keine Einträge. Markiere Folgen als gehört!</div>
+  </div>
+
+  <!-- STATS -->
+  <div class="page" id="page-stats">
+    <div class="stats-body">
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="stats-sec">
+        <h3>Aktivität (letzte 12 Monate)</h3>
+        <div class="cal-months" id="cal-months"></div>
+        <div class="cal-wrap"><div class="cal-grid" id="cal-grid"></div></div>
+      </div>
+      <div class="stats-sec">
+        <h3>Meistgehörte Folgen</h3>
+        <div id="top-list"></div>
+      </div>
+      <div class="stats-sec">
+        <h3>Bewertungsverteilung</h3>
+        <div id="rating-dist"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="settings-body">
+      <div class="ssec">
+        <h3>☁️ GitHub Backup</h3>
+        <div class="gh-status" id="gh-status">
+          <div class="gh-dot none" id="gh-dot"></div>
+          <span id="gh-status-text">Nicht verbunden</span>
+        </div>
+        <p class="gh-hint">Deine Daten werden als <code style="color:var(--gold)">data.json</code> in deinem GitHub-Repo gespeichert. Token wird nur lokal gespeichert und nie ins Repo geschrieben. <a href="https://github.com/settings/tokens/new?scopes=repo&description=DDF-Tracker" target="_blank">→ Token erstellen</a></p>
+        <input class="gh-input" type="password" id="gh-token" placeholder="GitHub Token (ghp_...)" autocomplete="off">
+        <div class="gh-row">
+          <input class="gh-input" type="text" id="gh-owner" placeholder="GitHub Username">
+          <input class="gh-input" type="text" id="gh-repo" placeholder="Repository Name">
+        </div>
+        <button class="sbtn" onclick="ghSave()" id="gh-save-btn">💾 Einstellungen speichern & testen</button>
+        <button class="sbtn" onclick="ghPush()" id="gh-push-btn" style="display:none">☁️ Jetzt sichern</button>
+        <button class="sbtn" onclick="ghPull()" id="gh-pull-btn" style="display:none">⬇️ Daten laden (überschreibt lokal)</button>
+        <div style="font-size:11px;color:var(--text-d);margin-top:4px" id="gh-last-sync"></div>
+      </div>
+      <div class="ssec">
+        <h3>Lokale Daten</h3>
+        <button class="sbtn" onclick="exportData()">📤 Exportieren (JSON)</button>
+        <button class="sbtn" onclick="document.getElementById('import-file').click()">📥 Importieren</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+      <div class="ssec">
+        <h3>Tags</h3>
+        <div id="all-tags-list" class="tag-chips" style="margin-bottom:10px;"></div>
+        <div class="tag-add">
+          <input type="text" id="global-tag-input" placeholder="Neuer Tag…" maxlength="20">
+          <button onclick="addGlobalTag()">+ Add</button>
+        </div>
+      </div>
+      <div class="ssec">
+        <h3>Gefährliche Zone</h3>
+        <button class="sbtn danger" onclick="resetAll()">🗑 Alle Daten löschen</button>
+      </div>
+      <div class="ssec">
+        <h3>App installieren</h3>
+        <p style="font-size:13px;color:var(--text-d);line-height:1.6;">Tippe in Chrome auf <strong style="color:var(--text)">Menü (⋮) → App installieren</strong> oder <strong style="color:var(--text)">Zum Startbildschirm hinzufügen</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL -->
+  <div class="page" id="page-detail">
+    <div class="back-bar" onclick="closeDetail()">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      Zurück
+    </div>
+    <div class="detail-hero">
+      <div class="cover-wrap" id="detail-cover-wrap"><div class="cover-ph">???</div></div>
+      <div class="detail-info">
+        <div class="detail-nr" id="detail-nr"></div>
+        <div class="detail-title" id="detail-title"></div>
+        <div class="detail-meta" id="detail-meta"></div>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="dsec">
+        <h3>Gehört</h3>
+        <div class="heard-row" onclick="toggleHeard()">
+          <span class="heard-lbl" id="detail-heard-lbl">Noch nicht gehört</span>
+          <div class="pill" id="detail-heard-pill"></div>
+        </div>
+        <div id="detail-date-wrap" style="display:none">
+          <div class="date-row" style="margin-top:6px">
+            <label>Erstmals gehört:</label>
+            <input type="date" id="detail-date" onchange="saveDateChange()">
+          </div>
+        </div>
+        <button class="listen-again-btn" id="listen-again-btn" onclick="showListenAgainModal()" style="display:none">
+          + Nochmal gehört
+        </button>
+        <div class="dsec" id="listen-history-sec" style="display:none;padding-top:10px">
+          <h3>Hörverlauf dieser Folge</h3>
+          <div id="listen-history-list"></div>
+        </div>
+      </div>
+      <div class="dsec">
+        <h3>Bewertung (1–5 in halben Schritten)</h3>
+        <div class="rating-opts" id="rating-opts"></div>
+      </div>
+      <div class="dsec">
+        <h3>Tags</h3>
+        <div class="tag-chips" id="detail-tags"></div>
+      </div>
+      <div class="dsec">
+        <h3>Notizen</h3>
+        <textarea class="note-area" id="detail-note" placeholder="Deine Notizen…" oninput="autoSaveNote()"></textarea>
+      </div>
+      <div class="dsec">
+        <h3>Auf Spotify anhören</h3>
+        <a id="spotify-link" class="spotify-btn" href="#" target="_blank">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          Auf Spotify öffnen
+        </a>
+      </div>
+      <button class="save-btn" onclick="saveDetail()">✓ Gespeichert</button>
+    </div>
+  </div>
+
+</div><!-- /pages -->
+
+<!-- NAV -->
+<nav id="nav">
+  <button class="nb on" id="nb-list" onclick="showPage('list')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Folgen
+  </button>
+  <button class="nb" id="nb-finder" onclick="showPage('finder')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+    Finder
+  </button>
+  <button class="nb" id="nb-history" onclick="showPage('history')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+    Verlauf
+  </button>
+  <button class="nb" id="nb-stats" onclick="showPage('stats')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Statistik
+  </button>
+  <button class="nb" id="nb-settings" onclick="showPage('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<!-- LISTEN AGAIN MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <h3>Nochmal gehört</h3>
+    <p id="modal-ep-title"></p>
+    <input type="date" class="modal-date" id="modal-date">
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal()">Abbrechen</button>
+      <button class="modal-confirm" onclick="confirmListenAgain()">Eintragen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════
+// EPISODES DATA
+// ════════════════════════════════════
+const EP = [
+  [1,"und der Superpapagei",1979,"normal"],[2,"und der Phantomsee",1979,"normal"],[3,"und der Karpatenhund",1979,"normal"],
+  [4,"und die Schwarze Katze",1979,"normal"],[5,"und der Fluch des Rubins",1979,"normal"],[6,"und der sprechende Totenkopf",1979,"normal"],
+  [7,"und der unheimliche Drache",1979,"normal"],[8,"und der grüne Geist",1979,"normal"],[9,"und die rätselhaften Bilder",1979,"normal"],
+  [10,"und die flüsternde Mumie",1980,"normal"],[11,"und das Gespensterschloss",1980,"normal"],[12,"und der seltsame Wecker",1980,"normal"],
+  [13,"und der lachende Schatten",1980,"normal"],[14,"und das Bergmonster",1980,"normal"],[15,"und der rasende Löwe",1980,"normal"],
+  [16,"und der Zauberspiegel",1980,"normal"],[17,"und die gefährliche Erbschaft",1980,"normal"],[18,"und die Geisterinsel",1980,"normal"],
+  [19,"und der Teufelsberg",1980,"normal"],[20,"und die flammende Spur",1980,"normal"],[21,"und der tanzende Teufel",1980,"normal"],
+  [22,"und der verschwundene Schatz",1981,"normal"],[23,"und das Aztekenschwert",1981,"normal"],[24,"und die silberne Spinne",1981,"normal"],
+  [25,"und die singende Schlange",1981,"normal"],[26,"und die Silbermine",1981,"normal"],[27,"und der magische Kreis",1981,"normal"],
+  [28,"und der Doppelgänger",1982,"normal"],[29,"und die Originalmusik",1982,"normal"],[30,"und das Riff der Haie",1982,"normal"],
+  [31,"und das Narbengesicht",1983,"normal"],[32,"und der Ameisenmensch",1983,"normal"],[33,"und die bedrohte Ranch",1983,"normal"],
+  [34,"und der rote Pirat",1984,"normal"],[35,"und der Höhlenmensch",1984,"normal"],[36,"und der Super-Wal",1985,"normal"],
+  [37,"und der heimliche Hehler",1985,"normal"],[38,"und der unsichtbare Gegner",1986,"normal"],[39,"und die Perlenvögel",1986,"normal"],
+  [40,"und der Automarder",1986,"normal"],[41,"und das Volk der Winde",1987,"normal"],[42,"und der weinende Sarg",1987,"normal"],
+  [43,"und der höllische Werwolf",1988,"normal"],[44,"und der gestohlene Preis",1988,"normal"],[45,"und das Gold der Wikinger",1989,"normal"],
+  [46,"und der schrullige Millionär",1989,"normal"],[47,"und der giftige Gockel",1989,"normal"],[48,"und die gefährlichen Fässer",1989,"normal"],
+  [49,"und die Comic-Diebe",1990,"normal"],[50,"und der verschwundene Filmstar",1991,"normal"],[51,"und der riskante Ritt",1991,"normal"],
+  [52,"und die Musikpiraten",1991,"normal"],[53,"und die Automafia",1991,"normal"],[54,"Gefahr in Verzug",1992,"normal"],
+  [55,"Gekaufte Spieler",1992,"normal"],[56,"Angriff der Computer-Viren",1992,"normal"],[57,"Tatort Zirkus",1994,"normal"],
+  [58,"und der verrückte Maler",1994,"normal"],[59,"Giftiges Wasser",1994,"normal"],[60,"Dopingmixer",1994,"normal"],
+  [61,"und die Rache des Tigers",1995,"normal"],[62,"Spuk im Hotel",1995,"normal"],[63,"Fußball-Gangster",1995,"normal"],
+  [64,"Geisterstadt",1995,"normal"],[65,"Diamantenschmuggel",1995,"normal"],[66,"und die Schattenmänner",1995,"normal"],
+  [67,"und das Geheimnis der Särge",1995,"normal"],[68,"und der Schatz am Bergsee",1996,"normal"],[69,"Späte Rache",1996,"normal"],
+  [70,"Schüsse aus dem Dunkel",1996,"normal"],[71,"und die verschwundene Seglerin",1996,"normal"],[72,"Dreckiger Deal",1996,"normal"],
+  [73,"Poltergeist",1997,"normal"],[74,"und das brennende Schwert",1997,"normal"],[75,"Die Spur des Raben",1997,"normal"],
+  [76,"Stimmen aus dem Nichts",1997,"normal"],[77,"Pistenteufel",1997,"normal"],[78,"Das leere Grab",1998,"normal"],
+  [79,"Im Bann des Voodoo",1998,"normal"],[80,"Geheimakte Ufo",1998,"normal"],[81,"Verdeckte Fouls",1998,"normal"],
+  [82,"Die Karten des Bösen",1998,"normal"],[83,"Meuterei auf hoher See",1999,"normal"],[84,"Musik des Teufels",1999,"normal"],
+  [85,"Feuerturm",1999,"normal"],[86,"Nacht in Angst",1999,"normal"],[87,"Wolfsgesicht",1999,"normal"],
+  [88,"Vampir im Internet",1999,"normal"],[89,"Tödliche Spur",2000,"normal"],[90,"Der Feuerteufel",2000,"normal"],
+  [91,"Labyrinth der Götter",2000,"normal"],[92,"Todesflug",2000,"normal"],[93,"und das Geisterschiff",2000,"normal"],
+  [94,"Das schwarze Monster",2000,"normal"],[95,"Botschaft von Geisterhand",2001,"normal"],[96,"und der rote Rächer",2001,"normal"],
+  [97,"Insektenstachel",2001,"normal"],[98,"Tal des Schreckens",2001,"normal"],[99,"Rufmord",2001,"normal"],
+  [100,"Toteninsel",2001,"normal"],[101,"und das Hexen-Handy",2001,"normal"],[102,"Doppelte Täuschung",2002,"normal"],
+  [103,"Erbe des Meisterdiebes",2002,"normal"],[104,"Gift per E-Mail",2002,"normal"],[105,"Der Nebelberg",2002,"normal"],
+  [106,"Der Mann ohne Kopf",2002,"normal"],[107,"und der Schatz der Mönche",2003,"normal"],[108,"Die sieben Tore",2003,"normal"],
+  [109,"Gefährliches Quiz",2003,"normal"],[110,"Panik im Park",2003,"normal"],[111,"Höhle des Grauens",2003,"normal"],
+  [112,"Schlucht der Dämonen",2003,"normal"],[113,"Auge des Drachen",2003,"normal"],[114,"Die Villa der Toten",2004,"normal"],
+  [115,"Auf tödlichem Kurs",2004,"normal"],[116,"Codename: Cobra",2004,"normal"],[117,"Der finstere Rivale",2004,"normal"],
+  [118,"Düsteres Vermächtnis",2004,"normal"],[119,"Geheime Schlüssel",2004,"normal"],[120,"Der schwarze Skorpion",2005,"normal"],
+  [121,"Spur ins Nichts",2008,"normal"],[122,"und der Geisterzug",2008,"normal"],[123,"Fußballfieber",2008,"normal"],
+  [124,"Geister-Canyon",2008,"normal"],[125,"Feuermond",2008,"normal"],[126,"Schrecken aus dem Moor",2008,"normal"],
+  [127,"Schwarze Madonna",2009,"normal"],[128,"Schatten über Hollywood",2009,"normal"],[129,"SMS aus dem Grab",2009,"normal"],
+  [130,"Fluch des Drachen",2009,"normal"],[131,"Haus des Schreckens",2009,"normal"],[132,"Spuk im Netz",2009,"normal"],
+  [133,"Fels der Dämonen",2009,"normal"],[134,"Der tote Mönch",2009,"normal"],[135,"Fluch des Piraten",2009,"normal"],
+  [136,"und das versunkene Dorf",2010,"normal"],[137,"Pfad der Angst",2010,"normal"],[138,"Die Geheime Treppe",2010,"normal"],
+  [139,"Das Geheimnis der Diva",2010,"normal"],[140,"Stadt der Vampire",2010,"normal"],[141,"und die Fußball-Falle",2010,"normal"],
+  [142,"Tödliches Eis",2010,"normal"],[143,"und die Pokerhölle",2010,"normal"],[144,"Zwillinge in der Finsternis",2011,"normal"],
+  [145,"und die Rache der Samurai",2011,"normal"],[146,"Der Biss der Bestie",2011,"normal"],[147,"Grusel auf Campbell Castle",2011,"normal"],
+  [148,"und die feurige Flut",2011,"normal"],[149,"Der namenlose Gegner",2011,"normal"],[150,"Geisterbucht",2011,"normal"],
+  [151,"Schwarze Sonne",2012,"normal"],[152,"Skateboardfieber",2012,"normal"],[153,"und das Fußballphantom",2012,"normal"],
+  [154,"Botschaft aus der Unterwelt",2012,"normal"],[155,"und der Meister des Todes",2012,"normal"],[156,"Im Netz des Drachen",2012,"normal"],
+  [157,"Im Zeichen der Schlangen",2012,"normal"],[158,"und der Feuergeist",2012,"normal"],[159,"Nacht der Tiger",2013,"normal"],
+  [160,"Geheimnisvolle Botschaften",2013,"normal"],[161,"Die blutenden Bilder",2013,"normal"],[162,"und der schreiende Nebel",2013,"normal"],
+  [163,"und der verschollene Pilot",2013,"normal"],[164,"Fußball-Teufel",2013,"normal"],[165,"Schatten des Giganten",2013,"normal"],
+  [166,"und die brennende Stadt",2014,"normal"],[167,"und das blaue Biest",2014,"normal"],[168,"GPS-Gangster",2014,"normal"],
+  [169,"Die Spur des Spielers",2014,"normal"],[170,"Straße des Grauens",2014,"normal"],[171,"und das Phantom aus dem Meer",2014,"normal"],
+  [172,"und der Eisenmann",2014,"normal"],[173,"Dämon der Rache",2015,"normal"],[174,"und das Tuch der Toten",2015,"normal"],
+  [175,"Schattenwelt",2015,"normal"],[176,"und der gestohlene Sieg",2015,"normal"],[177,"Der Geist des Goldgräbers",2015,"normal"],
+  [178,"Der gefiederte Schrecken",2015,"normal"],[179,"Die Rache des Untoten",2016,"normal"],[180,"und die flüsternden Puppen",2016,"normal"],
+  [181,"Das Kabinett des Zauberers",2016,"normal"],[182,"Im Haus des Henkers",2016,"normal"],[183,"und der letzte Song",2016,"normal"],
+  [184,"und der Hexengarten",2017,"normal"],[185,"und der Mann ohne Augen",2017,"normal"],[186,"Insel des Vergessens",2017,"normal"],
+  [187,"und das silberne Amulett",2017,"normal"],[188,"Signale aus dem Jenseits",2017,"normal"],[189,"und der unsichtbare Passagier",2017,"normal"],
+  [190,"und die Kammer der Rätsel",2017,"normal"],[191,"Verbrechen im Nichts",2018,"normal"],[192,"Im Bann des Drachen",2018,"normal"],
+  [193,"Schrecken aus der Tiefe",2018,"normal"],[194,"und die Zeitreisende",2018,"normal"],[195,"Im Reich der Ungeheuer",2018,"normal"],
+  [196,"Geheimnis des Bauchredners",2018,"normal"],[197,"Im Auge des Sturms",2019,"normal"],[198,"Die Legende der Gaukler",2019,"normal"],
+  [199,"und der grüne Kobold",2019,"normal"],[200,"Feuriges Auge",2019,"normal"],[201,"Höhenangst",2019,"normal"],
+  [202,"Das weiße Grab",2019,"normal"],[203,"Tauchgang ins Ungewisse",2020,"normal"],[204,"Der dunkle Wächter",2020,"normal"],
+  [205,"Das rätselhafte Erbe",2020,"normal"],[206,"und der Mottenmann",2020,"normal"],[207,"Die falschen Detektive",2020,"normal"],
+  [208,"Kelch des Schicksals",2021,"normal"],[209,"Kreaturen der Nacht",2021,"normal"],[210,"und die schweigende Grotte",2021,"normal"],
+  [211,"und der Jadekönig",2021,"normal"],[212,"und der weiße Leopard",2021,"normal"],[213,"Der Fluch der Medusa",2021,"normal"],
+  [214,"und der Geisterbunker",2022,"normal"],[215,"und die verlorene Zeit",2022,"normal"],[216,"Die Schwingen des Unheils",2022,"normal"],
+  [217,"und der Kristallschädel",2022,"normal"],[218,"Im Netz der Lügen",2022,"normal"],[219,"und die Teufelsklippe",2022,"normal"],
+  [220,"Im Wald der Gefahren",2023,"normal"],[221,"Manuskript des Satans",2023,"normal"],[222,"und die Gesetzlosen",2023,"normal"],
+  [223,"und der Knochenmann",2023,"normal"],[224,"Die Yacht des Verrats",2023,"normal"],[225,"und der Puppenmacher",2024,"normal"],
+  [226,"Die Spur der Toten",2024,"normal"],[227,"Melodie der Rache",2024,"normal"],[228,"Der Ruf der Krähen",2024,"normal"],
+  [229,"Drehbuch der Täuschung",2024,"normal"],[230,"Der Tag der Toten",2024,"normal"],[231,"und der Dreiäugige Schakal",2025,"normal"],
+  [232,"Die Stadt aus Gold",2025,"normal"],[233,"Die Nacht der Gewitter",2025,"normal"],[234,"und der Lebende Tresor",2025,"normal"],
+  [235,"und das Fantasmofon",2025,"normal"],[236,"Im Bann des Barrakudas",2025,"normal"],[237,"Der rote Büffel",2026,"normal"],
+  ["S1","Master of Chess Live & Unplugged",2002,"spezial"],["S2","und der Superpapagei 2004",2004,"spezial"],
+  ["S3","und der dreiTag",2010,"spezial"],["S4","Top Secret 1: Brainwash",2011,"spezial"],
+  ["S5","Top Secret 2: House of Horrors",2011,"spezial"],["S6","Top Secret 3: High Strung",2011,"spezial"],
+  ["S7","und der 5. Advent",2012,"spezial"],["S8","und die Geisterlampe",2012,"spezial"],
+  ["S9","Das Rätsel der Sieben",2014,"spezial"],["S10","und der Zeitgeist",2016,"spezial"],
+  ["S11","Stille Nacht, düstere Nacht",2016,"spezial"],["S12","Das Grab der Inka-Mumie",2017,"spezial"],
+  ["S13","und der Tornadojäger",2017,"spezial"],["S14","und das kalte Auge",2017,"spezial"],
+  ["S15","und der schwarze Tag",2018,"spezial"],["S16","Die schwarze Katze",2019,"spezial"],
+  ["S17","und das versunkene Schiff",2019,"spezial"],["S18","und der dreiäugige Totenkopf",2020,"spezial"],
+  ["S19","O du Finstere",2020,"spezial"],["S20","Und das Grab der Maya",2020,"spezial"],
+  ["S21","Rocky Beach Crimes – Eiskalte Rache",2023,"spezial"],
+  ["S22","Rocky Beach Crimes – Tödliche Törtchen",2026,"spezial"],
+  ["S23","Rocky Beach Crimes – Mord unter Palmen",2026,"spezial"],
+  ["S24","Folge 500",2025,"spezial"],
+];
+
+const EPISODES = EP.map(([nr,title,year,type]) => ({
+  id: String(nr), nr, title, year, type,
+}));
+
+// Duration data (embedded)
+const DUR = {
+  "1":46,"2":47,"3":48,"4":45,"5":46,"6":44,"7":45,"8":46,"9":44,"10":46,
+  "11":48,"12":49,"13":47,"14":45,"15":46,"16":50,"17":48,"18":47,"19":46,"20":47,
+  "21":48,"22":50,"23":49,"24":48,"25":47,"26":46,"27":49,"28":51,"29":43,"30":49,
+  "31":50,"32":51,"33":50,"34":49,"35":51,"36":52,"37":51,"38":53,"39":50,"40":52,
+  "41":53,"42":54,"43":55,"44":53,"45":55,"46":54,"47":56,"48":57,"49":56,"50":57,
+  "51":58,"52":59,"53":57,"54":58,"55":59,"56":61,"57":60,"58":61,"59":62,"60":60,
+  "61":62,"62":63,"63":61,"64":62,"65":63,"66":64,"67":62,"68":63,"69":64,"70":65,
+  "71":63,"72":64,"73":65,"74":64,"75":65,"76":66,"77":63,"78":65,"79":64,"80":66,
+  "81":65,"82":67,"83":66,"84":67,"85":65,"86":66,"87":67,"88":66,"89":67,"90":68,
+  "91":67,"92":68,"93":67,"94":68,"95":69,"96":68,"97":69,"98":68,"99":67,"100":180,
+  "101":68,"102":69,"103":70,"104":69,"105":68,"106":70,"107":71,"108":70,"109":69,"110":70,
+  "111":71,"112":70,"113":71,"114":72,"115":71,"116":72,"117":71,"118":72,"119":73,"120":74,
+  "121":72,"122":73,"123":72,"124":73,"125":180,"126":74,"127":73,"128":74,"129":73,"130":74,
+  "131":73,"132":74,"133":73,"134":74,"135":75,"136":74,"137":73,"138":74,"139":75,"140":74,
+  "141":73,"142":74,"143":75,"144":74,"145":75,"146":74,"147":75,"148":74,"149":75,"150":180,
+  "151":74,"152":73,"153":74,"154":75,"155":76,"156":75,"157":74,"158":75,"159":76,"160":75,
+  "161":74,"162":75,"163":76,"164":75,"165":76,"166":75,"167":76,"168":75,"169":74,"170":75,
+  "171":76,"172":75,"173":76,"174":75,"175":180,"176":74,"177":75,"178":76,"179":75,"180":76,
+  "181":75,"182":76,"183":75,"184":76,"185":75,"186":76,"187":75,"188":74,"189":75,"190":76,
+  "191":75,"192":76,"193":75,"194":76,"195":75,"196":74,"197":75,"198":76,"199":75,"200":76,
+  "201":75,"202":76,"203":75,"204":76,"205":75,"206":74,"207":75,"208":76,"209":75,"210":76,
+  "211":75,"212":76,"213":75,"214":76,"215":75,"216":74,"217":75,"218":76,"219":75,"220":76,
+  "221":75,"222":74,"223":75,"224":76,"225":180,"226":75,"227":76,"228":75,"229":74,"230":75,
+  "231":76,"232":75,"233":76,"234":75,"235":76,"236":75,"237":74,
+  "S1":75,"S2":160,"S3":180,"S4":70,"S5":140,"S6":80,"S7":180,"S8":60,"S9":75,
+  "S10":120,"S11":180,"S12":160,"S13":80,"S14":160,"S15":75,"S16":160,"S17":160,
+  "S18":160,"S19":180,"S20":160,"S21":75,"S22":75,"S23":75,"S24":75
+};
+
+// ════════════════════════════════════
+// COVER loading via iTunes API (works online without CORS issues)
+// ════════════════════════════════════
+const coverCache = {}; // id -> url string
+
+async function getCoverUrl(ep) {
+  const id = ep.id;
+  if (coverCache[id]) return coverCache[id];
+  const term = encodeURIComponent(`Die drei Fragezeichen ${ep.title}`);
+  try {
+    const res = await fetch(`https://itunes.apple.com/search?term=${term}&entity=audiobook&country=de&limit=5`);
+    const data = await res.json();
+    if (data.results?.length) {
+      const scored = data.results.map(r => {
+        const n = (r.collectionName || r.trackName || '').toLowerCase();
+        let s = 0;
+        if (n.includes('drei')) s += 3;
+        if (n.includes('???') || n.includes('fragezeichen')) s += 3;
+        ep.title.toLowerCase().split(' ').forEach(w => { if (w.length > 3 && n.includes(w)) s++; });
+        return { r, s };
+      }).sort((a,b) => b.s - a.s);
+      const best = scored[0]?.r;
+      if (best?.artworkUrl100) {
+        const url = best.artworkUrl100.replace('100x100bb', '400x400bb');
+        coverCache[id] = url;
+        return url;
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+// ════════════════════════════════════
+// STATE & STORAGE
+// ════════════════════════════════════
+// userData[id] = { heard, rating, date, note, tags, listenHistory: [{date, id}] }
+// listenHistory is array of {date: "YYYY-MM-DD"} per episode
+let userData = {};
+let globalTags = ['Favorit','Klassiker','Grusel','Nochmal hören','Empfehlung'];
+let sortKey = 'nr', sortDir = 1, filterMode = 'all';
+let currentDetailId = null, prevPage = 'list';
+let finderPool = 'all', finderType = 'all', finderMinR = 0;
+let lastFoundEp = null;
+
+function load() {
+  try { userData = JSON.parse(localStorage.getItem('ddf_user') || '{}'); } catch(e) { userData = {}; }
+  try { globalTags = JSON.parse(localStorage.getItem('ddf_tags') || JSON.stringify(globalTags)); } catch(e) {}
+  loadGhConfig();
+}
+function save() {
+  localStorage.setItem('ddf_user', JSON.stringify(userData));
+  localStorage.setItem('ddf_tags', JSON.stringify(globalTags));
+  schedulGhBackup();
+}
+function getU(id) {
+  if (!userData[id]) userData[id] = { heard: false, rating: 0, date: '', note: '', tags: [], listenHistory: [] };
+  if (!userData[id].listenHistory) userData[id].listenHistory = [];
+  return userData[id];
+}
+
+// ════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════
+function showPage(name, skipPrev=false) {
+  if (!skipPrev) prevPage = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
+  document.getElementById('page-' + name).classList.add('active');
+  const nb = document.getElementById('nb-' + name);
+  if (nb) nb.classList.add('on');
+  if (name === 'stats') renderStats();
+  if (name === 'history') renderHistory();
+  if (name === 'settings') renderSettings();
+}
+function openDetail(id) {
+  currentDetailId = id;
+  renderDetail(id);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-detail').classList.add('active');
+  document.getElementById('page-detail').scrollTop = 0;
+}
+function closeDetail() { showPage(prevPage, true); }
+
+// ════════════════════════════════════
+// HEADER
+// ════════════════════════════════════
+function updateHeader() {
+  const total = EPISODES.length;
+  const heard = EPISODES.filter(e => getU(e.id).heard).length;
+  document.getElementById('hdr-heard').textContent = heard;
+  document.getElementById('hdr-total').textContent = total;
+  document.getElementById('hdr-prog').style.width = (heard/total*100) + '%';
+}
+
+// ════════════════════════════════════
+// TABLE
+// ════════════════════════════════════
+function setFilter(f, el) {
+  filterMode = f;
+  document.querySelectorAll('#filter-row .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  renderTable();
+}
+function sortBy(key) {
+  if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+  renderTable();
+}
+function starsHtml(r) {
+  if (!r) return '<span style="color:var(--text-xs);font-size:11px">–</span>';
+  let h = '<div class="mini-stars">';
+  for (let i = 1; i <= 5; i++) {
+    if (r >= i) h += '<span class="ms on">★</span>';
+    else if (r >= i-.5) h += '<span class="ms h">★</span>';
+    else h += '<span class="ms">★</span>';
+  }
+  return h + '</div>';
+}
+function renderTable() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let rows = EPISODES.filter(e => {
+    const u = getU(e.id);
+    if (filterMode === 'unheard' && u.heard) return false;
+    if (filterMode === 'heard' && !u.heard) return false;
+    if (filterMode === 'rated' && !u.rating) return false;
+    if (filterMode === 'normal' && e.type !== 'normal') return false;
+    if (filterMode === 'spezial' && e.type !== 'spezial') return false;
+    if (q) return (String(e.nr) + ' ' + e.title + ' ' + e.year).toLowerCase().includes(q);
+    return true;
+  });
+  rows.sort((a, b) => {
+    const ua = getU(a.id), ub = getU(b.id);
+    let av, bv;
+    switch(sortKey) {
+      case 'nr': av = typeof a.nr==='number'?a.nr:9999; bv = typeof b.nr==='number'?b.nr:9999; break;
+      case 'title': av = a.title; bv = b.title; break;
+      case 'year': av = a.year; bv = b.year; break;
+      case 'dur': av = DUR[a.id]||0; bv = DUR[b.id]||0; break;
+      case 'heard': av = ua.heard?1:0; bv = ub.heard?1:0; break;
+      case 'rating': av = ua.rating||0; bv = ub.rating||0; break;
+      default: av = a.nr; bv = b.nr;
+    }
+    if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0;
+  });
+  ['nr','title','year','dur','heard','rating'].forEach(k => {
+    const th = document.getElementById('th-'+k);
+    const si = document.getElementById('si-'+k);
+    if (!th||!si) return;
+    th.classList.toggle('sorted', k===sortKey);
+    si.textContent = k===sortKey ? (sortDir===1?'↑':'↓') : '';
+  });
+  const tbody = document.getElementById('table-body');
+  if (!rows.length) { tbody.innerHTML=''; document.getElementById('list-empty').style.display='block'; return; }
+  document.getElementById('list-empty').style.display = 'none';
+  tbody.innerHTML = rows.map(e => {
+    const u = getU(e.id);
+    const dur = DUR[e.id] ? DUR[e.id]+' min' : '–';
+    return `<tr class="${u.heard?'heard':''}" onclick="openDetail('${e.id}')">
+      <td class="td-nr">${e.nr}</td>
+      <td class="td-title">${e.title}</td>
+      <td class="td-dur">${e.year}</td>
+      <td class="td-dur">${dur}</td>
+      <td class="td-check"><div class="ck ${u.heard?'on':''}">✓</div></td>
+      <td>${starsHtml(u.rating)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════
+// DETAIL
+// ════════════════════════════════════
+function renderDetail(id) {
+  const ep = EPISODES.find(e => e.id === id);
+  if (!ep) return;
+  const u = getU(id);
+  const dur = DUR[id] ? DUR[id]+' min' : '–';
+
+  document.getElementById('detail-nr').textContent = ep.type==='spezial' ? `Spezialfolge ${ep.nr}` : `Folge ${ep.nr}`;
+  document.getElementById('detail-title').textContent = ep.title;
+  document.getElementById('detail-meta').innerHTML =
+    `<strong>${ep.year}</strong> &nbsp;·&nbsp; ${ep.type==='spezial'?'Spezialfolge':'Normale Folge'} &nbsp;·&nbsp; <strong>${dur}</strong>`;
+
+  // Cover
+  loadDetailCover(ep, id);
+
+  // Heard
+  const pill = document.getElementById('detail-heard-pill');
+  const lbl = document.getElementById('detail-heard-lbl');
+  pill.className = 'pill' + (u.heard ? ' on' : '');
+  lbl.textContent = u.heard ? 'Gehört ✓' : 'Noch nicht gehört';
+  const dw = document.getElementById('detail-date-wrap');
+  dw.style.display = u.heard ? 'block' : 'none';
+  document.getElementById('detail-date').value = u.date || '';
+  document.getElementById('listen-again-btn').style.display = u.heard ? 'block' : 'none';
+
+  // Listen history
+  renderListenHistory(id);
+
+  // Rating
+  const opts = document.getElementById('rating-opts');
+  const vals = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5];
+  opts.innerHTML = vals.map(v =>
+    `<div class="ropt ${u.rating==v?'on':''}" onclick="setRating('${id}',${v},this)">${v}★</div>`
+  ).join('') + `<div class="ropt ${!u.rating?'on':''}" onclick="clearRating('${id}',this)">Keine</div>`;
+
+  // Tags
+  renderDetailTags(id);
+
+  // Note
+  document.getElementById('detail-note').value = u.note || '';
+
+  // Spotify
+  document.getElementById('spotify-link').href =
+    `https://open.spotify.com/search/${encodeURIComponent('Die drei Fragezeichen ' + ep.title)}`;
+}
+
+async function loadDetailCover(ep, id) {
+  const wrap = document.getElementById('detail-cover-wrap');
+  wrap.innerHTML = '<div class="cover-ph">???</div>';
+  const url = await getCoverUrl(ep);
+  if (url) {
+    wrap.innerHTML = `<img class="cover-img" src="${url}" alt="Cover" onerror="this.parentNode.innerHTML='<div class=cover-ph>???</div>'">`;
+  }
+}
+
+function renderListenHistory(id) {
+  const u = getU(id);
+  const sec = document.getElementById('listen-history-sec');
+  const list = document.getElementById('listen-history-list');
+  if (!u.listenHistory.length) { sec.style.display='none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = u.listenHistory.slice().sort((a,b)=>b.date.localeCompare(a.date)).map((entry,i) =>
+    `<div class="history-entry">
+      <span class="he-date">${formatDate(entry.date)}</span>
+      <button class="he-del" onclick="deleteListenEntry('${id}','${entry.date}',${i})" title="Löschen">✕</button>
+    </div>`
+  ).join('');
+}
+
+function toggleHeard() {
+  const u = getU(currentDetailId);
+  u.heard = !u.heard;
+  if (u.heard) {
+    const today = todayStr();
+    if (!u.date) u.date = today;
+    // Add to listen history if not already there for today
+    if (!u.listenHistory.find(e => e.date === today)) {
+      u.listenHistory.push({ date: today });
+    }
+  }
+  save(); updateHeader(); renderDetail(currentDetailId); renderTable();
+  showToast(u.heard ? '✓ Als gehört markiert' : 'Als nicht gehört markiert');
+}
+
+function saveDateChange() {
+  getU(currentDetailId).date = document.getElementById('detail-date').value;
+  save();
+}
+
+function deleteListenEntry(id, date, idx) {
+  const u = getU(id);
+  // Find and remove by date (get all with this date, remove one)
+  const i = u.listenHistory.findIndex(e => e.date === date);
+  if (i >= 0) u.listenHistory.splice(i, 1);
+  save(); renderListenHistory(id);
+  showToast('Eintrag gelöscht');
+}
+
+// Listen Again Modal
+function showListenAgainModal() {
+  const ep = EPISODES.find(e => e.id === currentDetailId);
+  document.getElementById('modal-ep-title').textContent = ep ? ep.title : '';
+  document.getElementById('modal-date').value = todayStr();
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('show');
+  }
+}
+function confirmListenAgain() {
+  const date = document.getElementById('modal-date').value;
+  if (!date) { showToast('Bitte Datum eingeben'); return; }
+  const u = getU(currentDetailId);
+  u.listenHistory.push({ date });
+  save(); renderListenHistory(currentDetailId);
+  document.getElementById('modal-overlay').classList.remove('show');
+  showToast('✓ Gehört am ' + formatDate(date));
+}
+
+function setRating(id, val, el) {
+  getU(id).rating = val;
+  save(); renderTable();
+  document.querySelectorAll('#rating-opts .ropt').forEach(o => o.classList.remove('on'));
+  el.classList.add('on');
+  showToast(`Bewertet mit ${val} ★`);
+}
+function clearRating(id, el) {
+  getU(id).rating = 0;
+  save(); renderTable();
+  document.querySelectorAll('#rating-opts .ropt').forEach(o => o.classList.remove('on'));
+  el.classList.add('on');
+}
+
+let noteTimer;
+function autoSaveNote() {
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { getU(currentDetailId).note = document.getElementById('detail-note').value; save(); }, 600);
+}
+
+function saveDetail() {
+  getU(currentDetailId).note = document.getElementById('detail-note').value;
+  save(); showToast('Gespeichert ✓');
+}
+
+function renderDetailTags(id) {
+  const u = getU(id);
+  document.getElementById('detail-tags').innerHTML = globalTags.map(t =>
+    `<div class="tag-chip ${(u.tags||[]).includes(t)?'on':''}" onclick="toggleTag('${id}','${t}',this)">${t}</div>`
+  ).join('');
+}
+function toggleTag(id, tag, el) {
+  const u = getU(id);
+  if (!u.tags) u.tags = [];
+  const i = u.tags.indexOf(tag);
+  if (i >= 0) u.tags.splice(i,1); else u.tags.push(tag);
+  save(); el.classList.toggle('on');
+}
+
+// ════════════════════════════════════
+// HISTORY PAGE
+// ════════════════════════════════════
+function renderHistory() {
+  // Collect all listen entries across all episodes
+  const allEntries = [];
+  EPISODES.forEach(ep => {
+    const u = getU(ep.id);
+    u.listenHistory.forEach(entry => {
+      allEntries.push({ ep, date: entry.date });
+    });
+  });
+  allEntries.sort((a,b) => b.date.localeCompare(a.date));
+
+  document.getElementById('hist-total-text').textContent =
+    `${allEntries.length} Einträge · ${EPISODES.filter(e=>getU(e.id).heard).length} Folgen gehört`;
+
+  if (!allEntries.length) {
+    document.getElementById('hist-list').innerHTML = '';
+    document.getElementById('hist-empty').style.display = 'block';
+    return;
+  }
+  document.getElementById('hist-empty').style.display = 'none';
+
+  // Group by month
+  const byMonth = {};
+  allEntries.forEach(e => {
+    const m = e.date.substring(0, 7); // YYYY-MM
+    if (!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(e);
+  });
+
+  const months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  let html = '';
+  Object.entries(byMonth).sort(([a],[b]) => b.localeCompare(a)).forEach(([ym, entries]) => {
+    const [y, m] = ym.split('-');
+    html += `<div class="hist-month">
+      <div class="hist-month-title">${months[parseInt(m)-1]} ${y} · ${entries.length} Folge${entries.length!==1?'n':''}</div>`;
+    entries.forEach(({ ep, date }) => {
+      html += `<div class="hist-item" onclick="openDetail('${ep.id}')">
+        <div class="hist-cover" id="hc-${ep.id}-${date.replace(/-/g,'')}">
+          <div class="hist-cover-ph">???</div>
+        </div>
+        <div class="hist-info">
+          <div class="hist-title">${ep.type==='normal'?'#'+ep.nr+' ':''} ${ep.title}</div>
+          <div class="hist-sub">${ep.year} · ${DUR[ep.id]?DUR[ep.id]+' min':'–'}</div>
+        </div>
+        <div class="hist-date">${formatDate(date)}</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('hist-list').innerHTML = html;
+
+  // Load covers lazily
+  allEntries.forEach(({ ep, date }) => {
+    const el = document.getElementById(`hc-${ep.id}-${date.replace(/-/g,'')}`);
+    if (el) {
+      getCoverUrl(ep).then(url => {
+        if (url && el) el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<div class=hist-cover-ph>???</div>'">`;
+      });
+    }
+  });
+}
+
+// ════════════════════════════════════
+// STATS PAGE
+// ════════════════════════════════════
+function renderStats() {
+  const total = EPISODES.length;
+  const heard = EPISODES.filter(e => getU(e.id).heard);
+  const rated = EPISODES.filter(e => getU(e.id).rating > 0);
+  const avgR = rated.length ? (rated.reduce((s,e)=>s+getU(e.id).rating,0)/rated.length).toFixed(1) : '–';
+
+  // Total listen hours from history
+  let totalListens = 0;
+  EPISODES.forEach(e => { totalListens += getU(e.id).listenHistory.length; });
+  const totalMins = EPISODES.reduce((s,e) => {
+    const h = getU(e.id).listenHistory.length;
+    return s + h * (DUR[e.id] || 68);
+  }, 0);
+  const totalHrs = (totalMins / 60).toFixed(0);
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="big">${heard.length}</div><div class="lbl">Gehört</div>
+      <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:6px;overflow:hidden">
+        <div style="height:100%;width:${heard.length/total*100}%;background:var(--gold-d);border-radius:2px;"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text-d);margin-top:3px">${Math.round(heard.length/total*100)}% von ${total}</div>
+    </div>
+    <div class="stat-card"><div class="big">${avgR}</div><div class="lbl">Ø Bewertung</div>
+      <div style="font-size:10px;color:var(--text-d);margin-top:5px">${rated.length} bewertet</div>
+    </div>
+    <div class="stat-card"><div class="big">${totalListens}</div><div class="lbl">Hördurchgänge</div></div>
+    <div class="stat-card"><div class="big">${totalHrs}</div><div class="lbl">Stunden gehört</div></div>`;
+
+  renderCalendar();
+  renderTopList();
+  renderRatingDist();
+}
+
+function renderCalendar() {
+  // Build map of date -> count
+  const counts = {};
+  EPISODES.forEach(e => {
+    getU(e.id).listenHistory.forEach(entry => {
+      counts[entry.date] = (counts[entry.date] || 0) + 1;
+    });
+  });
+
+  const today = new Date();
+  const start = new Date(today);
+  start.setFullYear(start.getFullYear() - 1);
+  // Go to start of that week (Monday)
+  while (start.getDay() !== 1) start.setDate(start.getDate() - 1);
+
+  const weeks = [];
+  let week = [];
+  let d = new Date(start);
+  const monthLabels = [];
+  let lastMonth = -1;
+
+  while (d <= today) {
+    const ds = d.toISOString().split('T')[0];
+    const c = counts[ds] || 0;
+    let cls = 'cal-day';
+    if (c === 1) cls += ' c1';
+    else if (c === 2) cls += ' c2';
+    else if (c >= 3) cls += ' c3';
+    week.push(`<div class="${cls}" title="${ds}: ${c} Folge(n)"></div>`);
+
+    if (d.getMonth() !== lastMonth && d.getDate() <= 7) {
+      const mn = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+      monthLabels.push({ week: weeks.length, label: mn[d.getMonth()] });
+      lastMonth = d.getMonth();
+    }
+
+    if (d.getDay() === 0 || d >= today) { // Sunday or last day
+      // Pad to 7
+      while (week.length < 7) week.unshift('<div class="cal-day"></div>');
+      weeks.push(week);
+      week = [];
+    }
+    d.setDate(d.getDate() + 1);
+  }
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = weeks.map(w => `<div class="cal-week">${w.join('')}</div>`).join('');
+
+  // Month labels
+  const ml = document.getElementById('cal-months');
+  let labHtml = '';
+  monthLabels.forEach((m, i) => {
+    const skip = i === 0 ? m.week : m.week - monthLabels[i-1].week;
+    labHtml += `<div class="cal-month-lbl" style="width:${skip*16}px">${m.label}</div>`;
+  });
+  ml.innerHTML = labHtml;
+}
+
+function renderTopList() {
+  // Count listens per episode
+  const listens = EPISODES.map(e => ({ ep: e, count: getU(e.id).listenHistory.length }))
+    .filter(x => x.count > 0)
+    .sort((a,b) => b.count - a.count)
+    .slice(0, 10);
+
+  if (!listens.length) {
+    document.getElementById('top-list').innerHTML = '<div style="color:var(--text-d);font-size:13px">Noch keine Einträge.</div>';
+    return;
+  }
+
+  const html = listens.map(({ ep, count }, i) => `
+    <div class="top-item" onclick="openDetail('${ep.id}')">
+      <div class="top-nr">${i+1}</div>
+      <div class="top-cover" id="tc-${ep.id}"><div class="top-cover-ph">???</div></div>
+      <div class="top-info">
+        <div class="top-title">${ep.type==='normal'?'#'+ep.nr+' ':''}${ep.title}</div>
+        <div class="top-sub">${ep.year}</div>
+      </div>
+      <div class="top-count">${count}×</div>
+    </div>`).join('');
+  document.getElementById('top-list').innerHTML = html;
+
+  listens.forEach(({ ep }) => {
+    const el = document.getElementById(`tc-${ep.id}`);
+    if (el) getCoverUrl(ep).then(url => {
+      if (url && el) el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<div class=top-cover-ph>???</div>'">`;
+    });
+  });
+}
+
+function renderRatingDist() {
+  const dist = {};
+  [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].forEach(v => dist[v] = 0);
+  EPISODES.forEach(e => { const r = getU(e.id).rating; if (r > 0) dist[r] = (dist[r]||0)+1; });
+  const maxV = Math.max(...Object.values(dist), 1);
+  document.getElementById('rating-dist').innerHTML = Object.entries(dist).map(([v,c]) =>
+    `<div class="bar-row">
+      <span class="bar-lbl">${v}★</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:${c/maxV*100}%"></div></div>
+      <span class="bar-val">${c}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════
+// FINDER
+// ════════════════════════════════════
+function setPool(v,el){finderPool=v;document.querySelectorAll('[data-pool]').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function setFtype(v,el){finderType=v;document.querySelectorAll('[data-ftype]').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function setMinR(v,el){finderMinR=v;document.querySelectorAll('[data-minr]').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function findEp() {
+  let pool = EPISODES.filter(e => {
+    const u = getU(e.id);
+    if (finderPool==='unheard' && u.heard) return false;
+    if (finderPool==='heard' && !u.heard) return false;
+    if (finderType==='normal' && e.type!=='normal') return false;
+    if (finderType==='spezial' && e.type!=='spezial') return false;
+    if (finderMinR > 0 && (u.rating||0) < finderMinR) return false;
+    const from = parseInt(document.getElementById('finder-from').value)||0;
+    const to = parseInt(document.getElementById('finder-to').value)||9999;
+    if (typeof e.nr==='number' && (e.nr<from||e.nr>to)) return false;
+    return true;
+  });
+  if (!pool.length) { showToast('Keine Folgen gefunden!'); return; }
+  const ep = pool[Math.floor(Math.random()*pool.length)];
+  lastFoundEp = ep;
+  const u = getU(ep.id);
+  document.getElementById('fr-nr').textContent = ep.type==='spezial'?`Spezialfolge ${ep.nr}`:`Folge ${ep.nr} · ${ep.year}`;
+  document.getElementById('fr-title').textContent = ep.title;
+  document.getElementById('fr-meta').textContent = u.heard ? `Gehört${u.rating?` · ${u.rating}★`:''}` : 'Noch nicht gehört';
+  document.getElementById('finder-result').classList.add('show');
+}
+function openFoundEp() { if (lastFoundEp) { prevPage='finder'; openDetail(lastFoundEp.id); } }
+
+// ════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════
+function renderSettings() {
+  const wrap = document.getElementById('all-tags-list');
+  wrap.innerHTML = globalTags.map(t =>
+    `<div class="tag-chip on" style="cursor:default">${t} <span style="cursor:pointer;margin-left:4px;opacity:.5" onclick="removeTag('${t}')">✕</span></div>`
+  ).join('');
+  ghRenderSettings();
+}
+function addGlobalTag() {
+  const inp = document.getElementById('global-tag-input');
+  const v = inp.value.trim();
+  if (v && !globalTags.includes(v)) { globalTags.push(v); save(); renderSettings(); inp.value=''; }
+}
+function removeTag(t) { globalTags=globalTags.filter(x=>x!==t); save(); renderSettings(); }
+function exportData() {
+  const blob = new Blob([JSON.stringify({userData,globalTags,exportDate:new Date().toISOString()},null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ddf-backup.json'; a.click();
+  showToast('Export erfolgreich!');
+}
+function importData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (d.userData) userData = d.userData;
+      if (d.globalTags) globalTags = d.globalTags;
+      save(); updateHeader(); renderTable(); renderSettings();
+      showToast('Import erfolgreich!');
+    } catch { showToast('Fehler beim Import!'); }
+  };
+  r.readAsText(file); event.target.value='';
+}
+function resetAll() {
+  if (confirm('Wirklich alle Daten löschen?')) {
+    userData = {}; save(); updateHeader(); renderTable();
+    showToast('Alle Daten gelöscht.');
+  }
+}
+
+// ════════════════════════════════════
+// UTILS
+// ════════════════════════════════════
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function formatDate(s) {
+  if (!s) return '';
+  const [y,m,d] = s.split('-');
+  return `${d}.${m}.${y}`;
+}
+let toastT;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════
+// SERVICE WORKER
+// ════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// ════════════════════════════════════
+// GITHUB BACKUP
+// ════════════════════════════════════
+let ghConfig = {}; // { token, owner, repo }
+let ghSyncTimer = null;
+let ghFileSha = null; // SHA of data.json in repo (needed for updates)
+
+function loadGhConfig() {
+  try { ghConfig = JSON.parse(localStorage.getItem('ddf_gh') || '{}'); } catch(e) { ghConfig = {}; }
+}
+function saveGhConfig() {
+  localStorage.setItem('ddf_gh', JSON.stringify(ghConfig));
+}
+
+function ghRenderSettings() {
+  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+  try {
+    const t = document.getElementById('gh-token');
+    const o = document.getElementById('gh-owner');
+    const r = document.getElementById('gh-repo');
+    const pb = document.getElementById('gh-push-btn');
+    const plb = document.getElementById('gh-pull-btn');
+    if (!t || !o || !r) return; // DOM not ready yet
+    t.value = ghConfig.token || '';
+    o.value = ghConfig.owner || '';
+    r.value = ghConfig.repo || '';
+    if (pb) pb.style.display = 'flex';
+    if (plb) plb.style.display = 'flex';
+    const lastSync = localStorage.getItem('ddf_gh_last');
+    const ls = document.getElementById('gh-last-sync');
+    if (lastSync && ls) ls.textContent = 'Zuletzt gesichert: ' + lastSync;
+    ghSetStatus('ok', 'Verbunden mit ' + ghConfig.owner + '/' + ghConfig.repo);
+  } catch(e) {}
+}
+
+function ghSetStatus(state, text) {
+  const dot = document.getElementById('gh-dot');
+  const txt = document.getElementById('gh-status-text');
+  if (!dot || !txt) return;
+  dot.className = 'gh-dot ' + state;
+  txt.textContent = text;
+}
+
+async function ghSave() {
+  const token = document.getElementById('gh-token').value.trim();
+  const owner = document.getElementById('gh-owner').value.trim();
+  const repo = document.getElementById('gh-repo').value.trim();
+  if (!token || !owner || !repo) { showToast('Bitte alle Felder ausfüllen'); return; }
+  ghSetStatus('syncing', 'Verbindung wird geprüft…');
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error('Repository nicht gefunden oder kein Zugriff');
+    ghConfig = { token, owner, repo };
+    saveGhConfig();
+    document.getElementById('gh-push-btn').style.display = 'flex';
+    document.getElementById('gh-pull-btn').style.display = 'flex';
+    ghSetStatus('ok', 'Verbunden mit ' + owner + '/' + repo);
+    showToast('✓ Verbindung erfolgreich!');
+    // Auto-push after saving config
+    await ghPush();
+  } catch(e) {
+    ghSetStatus('err', 'Fehler: ' + e.message);
+    showToast('Fehler: ' + e.message);
+  }
+}
+
+async function ghGetFileSha() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`, {
+      headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.sha;
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function ghPush() {
+  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+  ghSetStatus('syncing', 'Wird gesichert…');
+  try {
+    const payload = { userData, globalTags, savedAt: new Date().toISOString() };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    const sha = await ghGetFileSha();
+    const body = {
+      message: `Backup ${new Date().toLocaleString('de-DE')}`,
+      content,
+      ...(sha ? { sha } : {})
+    };
+    const res = await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${ghConfig.token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Unbekannter Fehler');
+    }
+    const now = new Date().toLocaleString('de-DE');
+    localStorage.setItem('ddf_gh_last', now);
+    document.getElementById('gh-last-sync').textContent = 'Zuletzt gesichert: ' + now;
+    ghSetStatus('ok', 'Gesichert ✓');
+    showToast('☁️ Backup gespeichert!');
+  } catch(e) {
+    ghSetStatus('err', 'Fehler: ' + e.message);
+    showToast('Backup fehlgeschlagen: ' + e.message);
+  }
+}
+
+async function ghPull() {
+  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+  if (!confirm('Lokale Daten werden mit dem GitHub-Backup überschrieben. Fortfahren?')) return;
+  ghSetStatus('syncing', 'Daten werden geladen…');
+  try {
+    const res = await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`, {
+      headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error('Keine Backup-Datei gefunden');
+    const file = await res.json();
+    const decoded = decodeURIComponent(escape(atob(file.content.replace(/\n/g, ''))));
+    const data = JSON.parse(decoded);
+    if (data.userData) userData = data.userData;
+    if (data.globalTags) globalTags = data.globalTags;
+    save();
+    updateHeader(); renderTable(); renderSettings();
+    ghSetStatus('ok', 'Daten geladen ✓');
+    showToast('⬇️ Daten aus GitHub geladen!');
+  } catch(e) {
+    ghSetStatus('err', 'Fehler: ' + e.message);
+    showToast('Laden fehlgeschlagen: ' + e.message);
+  }
+}
+
+// Auto-backup: debounced, triggers 5s after any data change
+function schedulGhBackup() {
+  try {
+    if (!ghConfig || !ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+    clearTimeout(ghSyncTimer);
+    ghSyncTimer = setTimeout(() => ghPush(), 5000);
+  } catch(e) {}
+}
+
+// ════════════════════════════════════
+// INIT
+// ════════════════════════════════════
+load();
+updateHeader();
+renderTable();
+</script>
+</body>
+</html>
