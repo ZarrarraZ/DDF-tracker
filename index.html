@@ -124,10 +124,6 @@
     /* ── DETAIL ── */
     .back-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;color:var(--gold);font-size:14px;font-weight:500;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:10;}
     .detail-hero{display:flex;gap:14px;padding:14px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
-    .cover-wrap{width:120px;height:120px;flex-shrink:0;border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border2);background:var(--bg3);position:relative;}
-    .cover-img{width:100%;height:100%;object-fit:cover;}
-    .cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:28px;color:var(--gold-d);}
-    .cover-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-d);}
     .detail-info{flex:1;min-width:0;}
     .detail-nr{font-size:10px;color:var(--text-d);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px;}
     .detail-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--gold-l);line-height:1.2;margin-bottom:6px;}
@@ -193,9 +189,6 @@
     .hist-month-title{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-d);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
     .hist-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
     .hist-item:last-child{border-bottom:none;}
-    .hist-cover{width:40px;height:40px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--bg3);border:1px solid var(--border2);}
-    .hist-cover img{width:100%;height:100%;object-fit:cover;}
-    .hist-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold-d);font-family:'Playfair Display',serif;}
     .hist-info{flex:1;min-width:0;}
     .hist-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .hist-sub{font-size:11px;color:var(--text-d);margin-top:2px;}
@@ -233,9 +226,6 @@
     .top-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
     .top-item:last-child{border-bottom:none;}
     .top-nr{font-size:14px;font-weight:700;color:var(--gold);width:22px;text-align:center;flex-shrink:0;}
-    .top-cover{width:36px;height:36px;border-radius:5px;overflow:hidden;flex-shrink:0;background:var(--bg3);}
-    .top-cover img{width:100%;height:100%;object-fit:cover;}
-    .top-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--gold-d);font-family:'Playfair Display',serif;}
     .top-info{flex:1;min-width:0;}
     .top-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .top-sub{font-size:11px;color:var(--text-d);margin-top:1px;}
@@ -438,7 +428,7 @@
           <input class="gh-input" type="text" id="gh-repo" placeholder="Repository Name">
         </div>
         <button class="sbtn" onclick="ghSave()" id="gh-save-btn">💾 Einstellungen speichern & testen</button>
-        <button class="sbtn" onclick="ghPush()" id="gh-push-btn" style="display:none">☁️ Jetzt sichern</button>
+        <button class="sbtn" onclick="ghPushSafe()" id="gh-push-btn" style="display:none">☁️ Jetzt sichern</button>
         <button class="sbtn" onclick="ghPull()" id="gh-pull-btn" style="display:none">⬇️ Daten laden (überschreibt lokal)</button>
         <div style="font-size:11px;color:var(--text-d);margin-top:4px" id="gh-last-sync"></div>
       </div>
@@ -460,6 +450,7 @@
         <h3>Gefährliche Zone</h3>
         <button class="sbtn danger" onclick="resetAll()">🗑 Alle Daten löschen</button>
       </div>
+
       <div class="ssec">
         <h3>App installieren</h3>
         <p style="font-size:13px;color:var(--text-d);line-height:1.6;">Tippe in Chrome auf <strong style="color:var(--text)">Menü (⋮) → App installieren</strong> oder <strong style="color:var(--text)">Zum Startbildschirm hinzufügen</strong>.</p>
@@ -474,7 +465,6 @@
       Zurück
     </div>
     <div class="detail-hero">
-      <div class="cover-wrap" id="detail-cover-wrap"><div class="cover-ph">???</div></div>
       <div class="detail-info">
         <div class="detail-nr" id="detail-nr"></div>
         <div class="detail-title" id="detail-title"></div>
@@ -702,101 +692,6 @@ const DUR = {
 };
 
 // ════════════════════════════════════
-// COVER loading via iTunes API (works online without CORS issues)
-// ════════════════════════════════════
-const coverCache = {}; // id -> url string
-
-async function getCoverUrl(ep) {
-  const id = ep.id;
-  // 1. In-memory cache
-  if (coverCache[id]) return coverCache[id];
-  // 2. sessionStorage cache
-  const cached = sessionStorage.getItem('cover_' + id);
-  if (cached) { coverCache[id] = cached; return cached; }
-
-  const url = await fetchCoverFromItunes(ep);
-  if (url) {
-    coverCache[id] = url;
-    try { sessionStorage.setItem('cover_' + id, url); } catch(e) {}
-  }
-  return url;
-}
-
-async function fetchCoverFromItunes(ep) {
-  // Strategy 1: iTunes via allorigins proxy (most reliable, has CORS headers)
-  // Strategy 2: MusicBrainz + Cover Art Archive (fully open, always CORS-enabled)
-  // Strategy 3: iTunes direct (works on https://)
-
-  let term = ep.type === 'normal' && typeof ep.nr === 'number'
-    ? `Die drei Fragezeichen ${ep.nr} ${ep.title}`
-    : `Die drei Fragezeichen ${ep.title}`;
-  const q = encodeURIComponent(term);
-
-  // ── Strategy 1: allorigins → iTunes ──
-  try {
-    const itunesUrl = `https://itunes.apple.com/search?term=${q}&entity=audiobook&country=de&limit=8`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(itunesUrl)}`;
-    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-    if (res.ok) {
-      const data = JSON.parse(await res.text());
-      const url = bestItunesResult(data.results, ep);
-      if (url) return url;
-    }
-  } catch(e) {}
-
-  // ── Strategy 2: MusicBrainz (open API, CORS allowed) ──
-  try {
-    const mbUrl = `https://musicbrainz.org/ws/2/release/?query=release:"${encodeURIComponent(ep.title)}"+artist:"EUROPA"&fmt=json&limit=3`;
-    const mbRes = await fetch(mbUrl, {
-      headers: { 'User-Agent': 'DDFTracker/1.0 (personal)' },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (mbRes.ok) {
-      const mbData = await mbRes.json();
-      const release = mbData.releases?.[0];
-      if (release?.id) {
-        // Get cover from Cover Art Archive (always CORS-enabled)
-        const caaUrl = `https://coverartarchive.org/release/${release.id}/front-250`;
-        const caaRes = await fetch(caaUrl, { signal: AbortSignal.timeout(6000) });
-        if (caaRes.ok && caaRes.headers.get('content-type')?.startsWith('image/')) {
-          return caaUrl;
-        }
-      }
-    }
-  } catch(e) {}
-
-  // ── Strategy 3: iTunes direct (works on https://) ──
-  try {
-    const directUrl = `https://itunes.apple.com/search?term=${q}&entity=audiobook&country=de&limit=8`;
-    const res = await fetch(directUrl, { signal: AbortSignal.timeout(8000) });
-    if (res.ok) {
-      const data = await res.json();
-      const url = bestItunesResult(data.results, ep);
-      if (url) return url;
-    }
-  } catch(e) {}
-
-  return null;
-}
-
-function bestItunesResult(results, ep) {
-  if (!results?.length) return null;
-  const scored = results.map(r => {
-    const n = (r.collectionName || r.trackName || '').toLowerCase();
-    let s = 0;
-    if (n.includes('drei')) s += 4;
-    if (n.includes('???') || n.includes('fragezeichen')) s += 4;
-    if (n.includes('europa')) s += 2;
-    ep.title.toLowerCase().split(' ').forEach(w => {
-      if (w.length > 3 && n.includes(w)) s += 2;
-    });
-    if (r.artworkUrl100) s += 1;
-    return { r, s };
-  }).sort((a,b) => b.s - a.s);
-  const best = scored[0]?.r;
-  return best?.artworkUrl100 ? best.artworkUrl100.replace('100x100bb', '400x400bb') : null;
-}
-
 // ════════════════════════════════════
 // STATE & STORAGE
 // ════════════════════════════════════
@@ -946,9 +841,6 @@ function renderDetail(id) {
   document.getElementById('detail-meta').innerHTML =
     `<strong>${ep.year}</strong> &nbsp;·&nbsp; ${ep.type==='spezial'?'Spezialfolge':'Normale Folge'} &nbsp;·&nbsp; <strong>${dur}</strong>`;
 
-  // Cover
-  loadDetailCover(ep, id);
-
   // Heard
   const pill = document.getElementById('detail-heard-pill');
   const lbl = document.getElementById('detail-heard-lbl');
@@ -980,18 +872,6 @@ function renderDetail(id) {
     `https://open.spotify.com/search/${encodeURIComponent('Die drei Fragezeichen ' + ep.title)}`;
 }
 
-async function loadDetailCover(ep, id) {
-  const wrap = document.getElementById('detail-cover-wrap');
-  wrap.innerHTML = '<div class="cover-ph" style="font-size:11px;color:var(--text-d)">Lädt…</div>';
-  const url = await getCoverUrl(ep);
-  if (url) {
-    wrap.innerHTML = `<img class="cover-img" src="${url}" alt="Cover"
-      style="width:100%;height:100%;object-fit:cover;"
-      onerror="this.parentNode.innerHTML='<div class=cover-ph>???</div>'">`;
-  } else {
-    wrap.innerHTML = '<div class="cover-ph">???</div>';
-  }
-}
 
 function renderListenHistory(id) {
   const u = getU(id);
@@ -1101,7 +981,6 @@ function toggleTag(id, tag, el) {
 // HISTORY PAGE
 // ════════════════════════════════════
 function renderHistory() {
-  // Collect all listen entries across all episodes
   const allEntries = [];
   EPISODES.forEach(ep => {
     const u = getU(ep.id);
@@ -1112,7 +991,7 @@ function renderHistory() {
   allEntries.sort((a,b) => b.date.localeCompare(a.date));
 
   document.getElementById('hist-total-text').textContent =
-    `${allEntries.length} Einträge · ${EPISODES.filter(e=>getU(e.id).heard).length} Folgen gehört`;
+    allEntries.length + ' Einträge · ' + EPISODES.filter(e=>getU(e.id).heard).length + ' Folgen gehört';
 
   if (!allEntries.length) {
     document.getElementById('hist-list').innerHTML = '';
@@ -1121,10 +1000,9 @@ function renderHistory() {
   }
   document.getElementById('hist-empty').style.display = 'none';
 
-  // Group by month
   const byMonth = {};
   allEntries.forEach(e => {
-    const m = e.date.substring(0, 7); // YYYY-MM
+    const m = e.date.substring(0, 7);
     if (!byMonth[m]) byMonth[m] = [];
     byMonth[m].push(e);
   });
@@ -1132,35 +1010,27 @@ function renderHistory() {
   const months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
   let html = '';
   Object.entries(byMonth).sort(([a],[b]) => b.localeCompare(a)).forEach(([ym, entries]) => {
-    const [y, m] = ym.split('-');
-    html += `<div class="hist-month">
-      <div class="hist-month-title">${months[parseInt(m)-1]} ${y} · ${entries.length} Folge${entries.length!==1?'n':''}</div>`;
-    entries.forEach(({ ep, date }) => {
-      html += `<div class="hist-item" onclick="openDetail('${ep.id}')">
-        <div class="hist-cover" id="hc-${ep.id}-${date.replace(/-/g,'')}">
-          <div class="hist-cover-ph">???</div>
-        </div>
-        <div class="hist-info">
-          <div class="hist-title">${ep.type==='normal'?'#'+ep.nr+' ':''} ${ep.title}</div>
-          <div class="hist-sub">${ep.year} · ${DUR[ep.id]?DUR[ep.id]+' min':'–'}</div>
-        </div>
-        <div class="hist-date">${formatDate(date)}</div>
-      </div>`;
+    const parts = ym.split('-');
+    const y = parts[0], m = parts[1];
+    html += '<div class="hist-month">';
+    html += '<div class="hist-month-title">' + months[parseInt(m)-1] + ' ' + y + ' · ' + entries.length + ' Folge' + (entries.length !== 1 ? 'n' : '') + '</div>';
+    entries.forEach(function(item) {
+      const ep = item.ep, date = item.date;
+      const nr = ep.type === 'normal' ? '#' + ep.nr + ' ' : '';
+      const dur = DUR[ep.id] ? DUR[ep.id] + ' min' : '–';
+      html += '<div class="hist-item" onclick="openDetail('' + ep.id + '')">';
+      html += '<div class="hist-info">';
+      html += '<div class="hist-title">' + nr + ep.title + '</div>';
+      html += '<div class="hist-sub">' + ep.year + ' · ' + dur + '</div>';
+      html += '</div>';
+      html += '<div class="hist-date">' + formatDate(date) + '</div>';
+      html += '</div>';
     });
     html += '</div>';
   });
   document.getElementById('hist-list').innerHTML = html;
-
-  // Load covers lazily
-  allEntries.forEach(({ ep, date }) => {
-    const el = document.getElementById(`hc-${ep.id}-${date.replace(/-/g,'')}`);
-    if (el) {
-      getCoverUrl(ep).then(url => {
-        if (url && el) el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<div class=hist-cover-ph>???</div>'">`;
-      });
-    }
-  });
 }
+
 
 // ════════════════════════════════════
 // STATS PAGE
@@ -1271,7 +1141,7 @@ function renderTopList() {
   const html = listens.map(({ ep, count }, i) => `
     <div class="top-item" onclick="openDetail('${ep.id}')">
       <div class="top-nr">${i+1}</div>
-      <div class="top-cover" id="tc-${ep.id}"><div class="top-cover-ph">???</div></div>
+
       <div class="top-info">
         <div class="top-title">${ep.type==='normal'?'#'+ep.nr+' ':''}${ep.title}</div>
         <div class="top-sub">${ep.year}</div>
@@ -1280,12 +1150,7 @@ function renderTopList() {
     </div>`).join('');
   document.getElementById('top-list').innerHTML = html;
 
-  listens.forEach(({ ep }) => {
-    const el = document.getElementById(`tc-${ep.id}`);
-    if (el) getCoverUrl(ep).then(url => {
-      if (url && el) el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<div class=top-cover-ph>???</div>'">`;
-    });
-  });
+
 }
 
 function renderRatingDist() {
@@ -1505,47 +1370,36 @@ async function ghPush() {
     const payload = { userData, globalTags, savedAt: new Date().toISOString() };
     const encoded = toBase64(JSON.stringify(payload, null, 2));
 
-    // Step 1: Get current file SHA (needed for update, not for first create)
-    let sha = null;
-    const getRes = await fetch(apiUrl, { headers });
-    if (getRes.ok) {
-      const fileInfo = await getRes.json();
-      sha = fileInfo.sha;
+    // Helper: do one PUT attempt
+    async function tryPut(sha) {
+      const body = { message: 'DDF Backup ' + new Date().toISOString(), content: encoded };
+      if (sha) body.sha = sha;
+      return fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
     }
-    // If 404, file doesn't exist yet – that's fine, sha stays null
 
-    // Step 2: Write file (GET and PUT close together to minimize stale SHA risk)
-    const body = { message: 'DDF Backup ' + new Date().toISOString(), content: encoded };
-    if (sha) body.sha = sha;
+    // Helper: get current SHA (returns null if file doesn't exist)
+    async function getSha() {
+      const r = await fetch(apiUrl, { headers });
+      if (r.ok) { const d = await r.json(); return d.sha || null; }
+      if (r.status === 404) return null;
+      throw new Error(`GET fehlgeschlagen: HTTP ${r.status}`);
+    }
 
-    const putRes = await fetch(apiUrl, {
-      method: 'PUT', headers, body: JSON.stringify(body)
-    });
+    // Attempt 1: get SHA then PUT
+    let sha = await getSha();
+    let putRes = await tryPut(sha);
 
+    // If SHA mismatch, get fresh SHA and try once more
     if (!putRes.ok) {
       const errData = await putRes.json().catch(() => ({}));
-      const errMsg = errData.message || `HTTP ${putRes.status}`;
-
-      // SHA mismatch: file was updated between our GET and PUT
-      // Solution: fetch SHA again and retry immediately
+      const errMsg = errData.message || '';
       if (putRes.status === 422 || putRes.status === 409 || errMsg.includes('does not match')) {
-        const getRes2 = await fetch(apiUrl, { headers });
-        if (getRes2.ok) {
-          const fi2 = await getRes2.json();
-          body.sha = fi2.sha;
-          body.message = 'DDF Backup (retry) ' + new Date().toISOString();
-          const putRes2 = await fetch(apiUrl, {
-            method: 'PUT', headers, body: JSON.stringify(body)
-          });
-          if (!putRes2.ok) {
-            const e2 = await putRes2.json().catch(() => ({}));
-            throw new Error('Retry fehlgeschlagen: ' + (e2.message || `HTTP ${putRes2.status}`));
-          }
-        } else {
-          throw new Error('SHA-Fehler: Datei nicht abrufbar');
-        }
-      } else {
-        throw new Error(errMsg);
+        sha = await getSha();
+        putRes = await tryPut(sha);
+      }
+      if (!putRes.ok) {
+        const e2 = await putRes.json().catch(() => ({}));
+        throw new Error(e2.message || `HTTP ${putRes.status}`);
       }
     }
 
@@ -1585,13 +1439,36 @@ async function ghPull() {
   }
 }
 
-// Auto-backup: debounced, triggers 5s after any data change
+// Auto-backup: debounced + mutex to prevent concurrent pushes
+let ghPushInProgress = false;
+let ghPendingPush = false;
+
 function schedulGhBackup() {
   try {
     if (!ghConfig || !ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
     clearTimeout(ghSyncTimer);
-    ghSyncTimer = setTimeout(() => ghPush(), 5000);
+    ghSyncTimer = setTimeout(() => ghPushSafe(), 5000);
   } catch(e) {}
+}
+
+async function ghPushSafe() {
+  // If already pushing, mark that we need another push after current one finishes
+  if (ghPushInProgress) {
+    ghPendingPush = true;
+    return;
+  }
+  ghPushInProgress = true;
+  ghPendingPush = false;
+  try {
+    await ghPush();
+  } finally {
+    ghPushInProgress = false;
+    // If another push was requested while we were pushing, do it now
+    if (ghPendingPush) {
+      ghPendingPush = false;
+      setTimeout(() => ghPushSafe(), 1000);
+    }
+  }
 }
 
 // ════════════════════════════════════
