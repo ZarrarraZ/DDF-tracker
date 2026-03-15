@@ -409,7 +409,7 @@
         <p class="gh-hint">Deine Daten werden in einem privaten GitHub Gist gespeichert. Kein Repository nötig.<br>
         Token erstellen: <a href="https://github.com/settings/tokens/new?scopes=gist&description=DDF-Tracker" target="_blank">→ Token mit „gist" Berechtigung</a></p>
         <input class="gh-input" type="password" id="gh-token" placeholder="GitHub Token (ghp_...)" autocomplete="off">
-        <button class="sbtn" onclick="ghSave()" id="gh-save-btn">💾 Verbinden & erstes Backup</button>
+        <button class="sbtn" onclick="ghSave()" id="gh-save-btn">🔗 Verbinden</button>
         <button class="sbtn" onclick="ghPushSafe()" id="gh-push-btn" style="display:none">☁️ Jetzt sichern</button>
         <button class="sbtn" onclick="ghPull()" id="gh-pull-btn" style="display:none">⬇️ Daten laden (überschreibt lokal)</button>
         <div style="font-size:11px;color:var(--text-d);margin-top:4px" id="gh-last-sync"></div>
@@ -1248,7 +1248,7 @@ async function ghSave() {
   if (!token) { showToast('Bitte Token eingeben'); return; }
   ghSetStatus('syncing', 'Verbindung wird geprüft…');
   try {
-    // Verify token works
+    // Step 1: Verify token
     const res = await fetch('https://api.github.com/user', {
       headers: gistHeaders(token)
     });
@@ -1256,11 +1256,37 @@ async function ghSave() {
     const user = await res.json();
     ghConfig.token = token;
     ghConfig.username = user.login;
+
+    // Step 2: Search for existing DDF Tracker Gist
+    ghSetStatus('syncing', 'Suche vorhandenes Backup…');
+    const gistsRes = await fetch('https://api.github.com/gists?per_page=100', {
+      headers: gistHeaders(token)
+    });
+    if (gistsRes.ok) {
+      const gists = await gistsRes.json();
+      const existing = gists.find(g =>
+        g.description === 'DDF Tracker Backup' && g.files?.['ddf-data.json']
+      );
+      if (existing) {
+        // Found existing gist - load data from it
+        ghConfig.gistId = existing.id;
+        saveGhConfig();
+        document.getElementById('gh-push-btn').style.display = 'flex';
+        document.getElementById('gh-pull-btn').style.display = 'flex';
+        ghSetStatus('ok', 'Verbunden als ' + user.login);
+        showToast('✓ Backup gefunden – Daten werden geladen…');
+        // Load data from gist
+        await ghPull(true); // silent=true skips confirm dialog
+        return;
+      }
+    }
+
+    // No existing gist found - save config and create first backup
     saveGhConfig();
     document.getElementById('gh-push-btn').style.display = 'flex';
     document.getElementById('gh-pull-btn').style.display = 'flex';
     ghSetStatus('ok', 'Verbunden als ' + user.login);
-    showToast('✓ Verbunden als ' + user.login);
+    showToast('✓ Kein Backup gefunden – erstes Backup wird erstellt…');
     await ghPushSafe();
   } catch(e) {
     ghSetStatus('err', 'Fehler: ' + e.message);
@@ -1343,12 +1369,12 @@ async function ghPush() {
   }
 }
 
-async function ghPull() {
+async function ghPull(silent = false) {
   if (!ghConfig.token || !ghConfig.gistId) {
     showToast('Kein Backup vorhanden');
     return;
   }
-  if (!confirm('Lokale Daten werden mit dem Backup überschrieben. Fortfahren?')) return;
+  if (!silent && !confirm('Lokale Daten werden mit dem Backup überschrieben. Fortfahren?')) return;
   ghSetStatus('syncing', 'Daten werden geladen…');
   try {
     const res = await fetch('https://api.github.com/gists/' + ghConfig.gistId, {
@@ -1364,7 +1390,7 @@ async function ghPull() {
     save();
     updateHeader(); renderTable(); renderSettings();
     ghSetStatus('ok', 'Daten geladen ✓');
-    showToast('⬇️ Daten aus Gist geladen!');
+    showToast('⬇️ Backup geladen!');
   } catch(e) {
     ghSetStatus('err', 'Fehler: ' + e.message);
     showToast('Laden fehlgeschlagen: ' + e.message);
