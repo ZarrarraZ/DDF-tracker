@@ -958,10 +958,14 @@ function renderDetail(id) {
 
 async function loadDetailCover(ep, id) {
   const wrap = document.getElementById('detail-cover-wrap');
-  wrap.innerHTML = '<div class="cover-ph">???</div>';
+  wrap.innerHTML = '<div class="cover-ph" style="font-size:11px;color:var(--text-d)">Lädt…</div>';
   const url = await getCoverUrl(ep);
   if (url) {
-    wrap.innerHTML = `<img class="cover-img" src="${url}" alt="Cover" onerror="this.parentNode.innerHTML='<div class=cover-ph>???</div>'">`;
+    wrap.innerHTML = `<img class="cover-img" src="${url}" alt="Cover"
+      style="width:100%;height:100%;object-fit:cover;"
+      onerror="this.parentNode.innerHTML='<div class=cover-ph>???</div>'">`;
+  } else {
+    wrap.innerHTML = '<div class="cover-ph">???</div>';
   }
 }
 
@@ -1261,15 +1265,16 @@ function renderTopList() {
 }
 
 function renderRatingDist() {
+  const order = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5];
   const dist = {};
-  [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].forEach(v => dist[v] = 0);
-  EPISODES.forEach(e => { const r = getU(e.id).rating; if (r > 0) dist[r] = (dist[r]||0)+1; });
-  const maxV = Math.max(...Object.values(dist), 1);
-  document.getElementById('rating-dist').innerHTML = Object.entries(dist).map(([v,c]) =>
+  order.forEach(v => dist[v] = 0);
+  EPISODES.forEach(e => { const r = getU(e.id).rating; if (r > 0 && dist[r] !== undefined) dist[r]++; });
+  const maxV = Math.max(...order.map(v => dist[v]), 1);
+  document.getElementById('rating-dist').innerHTML = order.map(v =>
     `<div class="bar-row">
       <span class="bar-lbl">${v}★</span>
-      <div class="bar-bg"><div class="bar-fill" style="width:${c/maxV*100}%"></div></div>
-      <span class="bar-val">${c}</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:${dist[v]/maxV*100}%"></div></div>
+      <span class="bar-val">${dist[v]}</span>
     </div>`).join('');
 }
 
@@ -1449,50 +1454,65 @@ async function ghGetFileSha() {
   return null;
 }
 
+// Unicode-safe base64 encoding
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
 async function ghPush() {
   if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
   ghSetStatus('syncing', 'Wird gesichert…');
   try {
     const payload = { userData, globalTags, savedAt: new Date().toISOString() };
     const jsonStr = JSON.stringify(payload, null, 2);
-    // Encode to base64 properly (handles unicode)
-    const encoded = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g,
-      (_, p1) => String.fromCharCode('0x' + p1)));
+    const encoded = toBase64(jsonStr);
+    const apiUrl = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`;
+    const headers = {
+      Authorization: `Bearer ${ghConfig.token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    };
 
-    // ALWAYS get fresh SHA right before writing - this fixes the mismatch error
-    const sha = await ghGetFileSha();
+    // Step 1: Always get the very latest SHA from GitHub right now
+    let sha = null;
+    try {
+      const check = await fetch(apiUrl, { headers });
+      if (check.ok) {
+        const fileData = await check.json();
+        sha = fileData.sha;
+      }
+    } catch(e) {}
 
-    const body = { message: 'Backup ' + new Date().toLocaleString('de-DE'), content: encoded };
+    // Step 2: Push with that SHA
+    const body = {
+      message: 'Backup ' + new Date().toLocaleString('de-DE'),
+      content: encoded
+    };
     if (sha) body.sha = sha;
 
-    const res = await fetch(
-      `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${ghConfig.token}`,
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      }
-    );
+    const res = await fetch(apiUrl, {
+      method: 'PUT', headers, body: JSON.stringify(body)
+    });
 
+    // Step 3: If still SHA mismatch, try once more with fresh SHA
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      // If SHA mismatch, get fresh SHA and retry once
-      if (res.status === 409 || (err.message && err.message.includes('does not match'))) {
-        const freshSha = await ghGetFileSha();
-        if (freshSha) {
-          body.sha = freshSha;
-          const retry = await fetch(
-            `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
-            { method:'PUT', headers:{ Authorization:`Bearer ${ghConfig.token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' }, body:JSON.stringify(body) }
-          );
-          if (!retry.ok) {
-            const e2 = await retry.json().catch(()=>({}));
-            throw new Error(e2.message || 'Retry fehlgeschlagen');
-          }
+      if (res.status === 409 || (err.message || '').includes('does not match')) {
+        // Wait briefly then get truly fresh SHA
+        await new Promise(r => setTimeout(r, 1000));
+        const check2 = await fetch(apiUrl, { headers });
+        if (check2.ok) {
+          const fd2 = await check2.json();
+          body.sha = fd2.sha;
+        } else {
+          delete body.sha; // file might not exist yet
+        }
+        const retry = await fetch(apiUrl, {
+          method: 'PUT', headers, body: JSON.stringify(body)
+        });
+        if (!retry.ok) {
+          const e2 = await retry.json().catch(() => ({}));
+          throw new Error(e2.message || `HTTP ${retry.status}`);
         }
       } else {
         throw new Error(err.message || `HTTP ${res.status}`);
