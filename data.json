@@ -3,14 +3,10 @@
     "1": {
       "heard": false,
       "rating": 0,
-      "date": "2026-03-15",
+      "date": "",
       "note": "",
       "tags": [],
-      "listenHistory": [
-        {
-          "date": "2026-03-15"
-        }
-      ]
+      "listenHistory": []
     },
     "2": {
       "heard": false,
@@ -2100,5 +2096,5 @@
     "Nochmal hören",
     "Empfehlung"
   ],
-  "savedAt": "2026-03-15T15:57:30.859Z"
+  "savedAt": "2026-03-15T16:22:02.833Z"
 }
