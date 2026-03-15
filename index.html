@@ -35,8 +35,8 @@
       --r:       10px;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-    html{height:100%;background:var(--bg);}
-    body{height:100%;overflow:hidden;color:var(--text);font-family:'Outfit',sans-serif;font-size:15px;display:flex;flex-direction:column;background:var(--bg);}
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);}
+    body{color:var(--text);font-family:'Outfit',sans-serif;font-size:15px;display:flex;flex-direction:column;height:100%;overflow:hidden;}
 
     /* ── HEADER ── */
     #hdr{
@@ -56,12 +56,17 @@
     /* ── PAGES ── */
     #pages{flex:1;overflow:hidden;position:relative;min-height:0;}
     .page{
-      position:absolute;top:0;left:0;right:0;bottom:0;
-      overflow-y:scroll;-webkit-overflow-scrolling:touch;
-      display:none;padding-bottom:calc(var(--nav-h)+16px);
-      overscroll-behavior:contain;
+      position:absolute;
+      top:0;left:0;right:0;bottom:0;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior-y:contain;
+      display:none;
+      padding-bottom:calc(var(--nav-h) + 20px);
     }
     .page.active{display:block;}
+    /* Extra scroll space fix for iOS/Android */
+    .page > *:last-child{margin-bottom:calc(var(--nav-h) + 20px);}
 
     /* ── NAV ── */
     #nav{
@@ -1444,19 +1449,22 @@ async function ghGetFileSha() {
   return null;
 }
 
-async function ghPush(retries = 2) {
+async function ghPush() {
   if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
   ghSetStatus('syncing', 'Wird gesichert…');
   try {
     const payload = { userData, globalTags, savedAt: new Date().toISOString() };
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
-    // Always fetch fresh SHA immediately before writing
+    const jsonStr = JSON.stringify(payload, null, 2);
+    // Encode to base64 properly (handles unicode)
+    const encoded = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g,
+      (_, p1) => String.fromCharCode('0x' + p1)));
+
+    // ALWAYS get fresh SHA right before writing - this fixes the mismatch error
     const sha = await ghGetFileSha();
-    const body = {
-      message: 'Backup ' + new Date().toLocaleString('de-DE'),
-      content: encoded,
-      ...(sha ? { sha } : {})
-    };
+
+    const body = { message: 'Backup ' + new Date().toLocaleString('de-DE'), content: encoded };
+    if (sha) body.sha = sha;
+
     const res = await fetch(
       `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
       {
@@ -1469,15 +1477,28 @@ async function ghPush(retries = 2) {
         body: JSON.stringify(body)
       }
     );
-    if (res.status === 409 && retries > 0) {
-      // SHA conflict - file was updated externally, retry with fresh SHA
-      await new Promise(r => setTimeout(r, 500));
-      return ghPush(retries - 1);
-    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
+      // If SHA mismatch, get fresh SHA and retry once
+      if (res.status === 409 || (err.message && err.message.includes('does not match'))) {
+        const freshSha = await ghGetFileSha();
+        if (freshSha) {
+          body.sha = freshSha;
+          const retry = await fetch(
+            `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
+            { method:'PUT', headers:{ Authorization:`Bearer ${ghConfig.token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' }, body:JSON.stringify(body) }
+          );
+          if (!retry.ok) {
+            const e2 = await retry.json().catch(()=>({}));
+            throw new Error(e2.message || 'Retry fehlgeschlagen');
+          }
+        }
+      } else {
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
     }
+
     const now = new Date().toLocaleString('de-DE');
     localStorage.setItem('ddf_gh_last', now);
     const el = document.getElementById('gh-last-sync');
