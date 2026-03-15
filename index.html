@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Drei ???">
   <link rel="manifest" href="manifest.json">
   <title>Die drei ??? – Meine Sammlung</title>
+  <!-- v4 -->
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -1018,7 +1019,7 @@ function renderHistory() {
       const ep = item.ep, date = item.date;
       const nr = ep.type === 'normal' ? '#' + ep.nr + ' ' : '';
       const dur = DUR[ep.id] ? DUR[ep.id] + ' min' : '–';
-      html += '<div class="hist-item" onclick="openDetail('' + ep.id + '')">';
+      html += '<div class="hist-item" onclick="openDetail(\'' + ep.id + '\')">';
       html += '<div class="hist-info">';
       html += '<div class="hist-title">' + nr + ep.title + '</div>';
       html += '<div class="hist-sub">' + ep.year + ' · ' + dur + '</div>';
@@ -1259,7 +1260,15 @@ function showToast(msg) {
 // SERVICE WORKER
 // ════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  // Unregister old service workers first to clear bad caches
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => {
+      if (!reg.scope.endsWith(location.pathname.replace('index.html',''))) {
+        reg.unregister();
+      }
+    });
+  });
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(()=>{});
 }
 
 // ════════════════════════════════════

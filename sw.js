@@ -1,8 +1,7 @@
-const CACHE = 'ddf-v2';
+const CACHE = 'ddf-v4';
 const SHELL = [
   './index.html',
-  './manifest.json',
-  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600&display=swap'
+  './manifest.json'
 ];
 
 self.addEventListener('install', e => {
