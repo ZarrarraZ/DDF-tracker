@@ -417,18 +417,15 @@
   <div class="page" id="page-settings">
     <div class="settings-body">
       <div class="ssec">
-        <h3>☁️ GitHub Backup</h3>
+        <h3>☁️ Gist Backup</h3>
         <div class="gh-status" id="gh-status">
           <div class="gh-dot none" id="gh-dot"></div>
           <span id="gh-status-text">Nicht verbunden</span>
         </div>
-        <p class="gh-hint">Deine Daten werden als <code style="color:var(--gold)">data.json</code> in deinem GitHub-Repo gespeichert. Token wird nur lokal gespeichert und nie ins Repo geschrieben. <a href="https://github.com/settings/tokens/new?scopes=repo&description=DDF-Tracker" target="_blank">→ Token erstellen</a></p>
+        <p class="gh-hint">Deine Daten werden in einem privaten GitHub Gist gespeichert. Kein Repository nötig.<br>
+        Token erstellen: <a href="https://github.com/settings/tokens/new?scopes=gist&description=DDF-Tracker" target="_blank">→ Token mit „gist" Berechtigung</a></p>
         <input class="gh-input" type="password" id="gh-token" placeholder="GitHub Token (ghp_...)" autocomplete="off">
-        <div class="gh-row">
-          <input class="gh-input" type="text" id="gh-owner" placeholder="GitHub Username">
-          <input class="gh-input" type="text" id="gh-repo" placeholder="Repository Name">
-        </div>
-        <button class="sbtn" onclick="ghSave()" id="gh-save-btn">💾 Einstellungen speichern & testen</button>
+        <button class="sbtn" onclick="ghSave()" id="gh-save-btn">💾 Verbinden & erstes Backup</button>
         <button class="sbtn" onclick="ghPushSafe()" id="gh-push-btn" style="display:none">☁️ Jetzt sichern</button>
         <button class="sbtn" onclick="ghPull()" id="gh-pull-btn" style="display:none">⬇️ Daten laden (überschreibt lokal)</button>
         <div style="font-size:11px;color:var(--text-d);margin-top:4px" id="gh-last-sync"></div>
@@ -1272,11 +1269,12 @@ if ('serviceWorker' in navigator) {
 }
 
 // ════════════════════════════════════
-// GITHUB BACKUP
+// GIST BACKUP
 // ════════════════════════════════════
-let ghConfig = {}; // { token, owner, repo }
+let ghConfig = {};
 let ghSyncTimer = null;
-let ghFileSha = null; // SHA of data.json in repo (needed for updates)
+let ghPushInProgress = false;
+let ghPendingPush = false;
 
 function loadGhConfig() {
   try { ghConfig = JSON.parse(localStorage.getItem('ddf_gh') || '{}'); } catch(e) { ghConfig = {}; }
@@ -1286,130 +1284,125 @@ function saveGhConfig() {
 }
 
 function ghRenderSettings() {
-  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
   try {
     const t = document.getElementById('gh-token');
-    const o = document.getElementById('gh-owner');
-    const r = document.getElementById('gh-repo');
     const pb = document.getElementById('gh-push-btn');
     const plb = document.getElementById('gh-pull-btn');
-    if (!t || !o || !r) return; // DOM not ready yet
-    t.value = ghConfig.token || '';
-    o.value = ghConfig.owner || '';
-    r.value = ghConfig.repo || '';
-    if (pb) pb.style.display = 'flex';
-    if (plb) plb.style.display = 'flex';
-    const lastSync = localStorage.getItem('ddf_gh_last');
-    const ls = document.getElementById('gh-last-sync');
-    if (lastSync && ls) ls.textContent = 'Zuletzt gesichert: ' + lastSync;
-    ghSetStatus('ok', 'Verbunden mit ' + ghConfig.owner + '/' + ghConfig.repo);
+    if (!t) return;
+    if (ghConfig.token) {
+      t.value = ghConfig.token;
+      if (pb) pb.style.display = 'flex';
+      if (plb) plb.style.display = 'flex';
+      const lastSync = localStorage.getItem('ddf_gh_last');
+      const ls = document.getElementById('gh-last-sync');
+      if (lastSync && ls) ls.textContent = 'Zuletzt gesichert: ' + lastSync;
+      ghSetStatus('ok', 'Verbunden' + (ghConfig.gistId ? ' · Gist vorhanden' : ''));
+    }
   } catch(e) {}
 }
 
 function ghSetStatus(state, text) {
   const dot = document.getElementById('gh-dot');
   const txt = document.getElementById('gh-status-text');
-  if (!dot || !txt) return;
-  dot.className = 'gh-dot ' + state;
-  txt.textContent = text;
+  if (dot) dot.className = 'gh-dot ' + state;
+  if (txt) txt.textContent = text;
+}
+
+// ── Gist API helpers ──────────────────────────────────────────────────────────
+function gistHeaders(token) {
+  return {
+    Authorization: 'Bearer ' + token,
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
 }
 
 async function ghSave() {
   const token = document.getElementById('gh-token').value.trim();
-  const owner = document.getElementById('gh-owner').value.trim();
-  const repo = document.getElementById('gh-repo').value.trim();
-  if (!token || !owner || !repo) { showToast('Bitte alle Felder ausfüllen'); return; }
+  if (!token) { showToast('Bitte Token eingeben'); return; }
   ghSetStatus('syncing', 'Verbindung wird geprüft…');
   try {
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+    // Verify token works
+    const res = await fetch('https://api.github.com/user', {
+      headers: gistHeaders(token)
     });
-    if (!res.ok) throw new Error('Repository nicht gefunden oder kein Zugriff');
-    ghConfig = { token, owner, repo };
+    if (!res.ok) throw new Error('Token ungültig oder kein Zugriff');
+    const user = await res.json();
+    ghConfig.token = token;
+    ghConfig.username = user.login;
     saveGhConfig();
     document.getElementById('gh-push-btn').style.display = 'flex';
     document.getElementById('gh-pull-btn').style.display = 'flex';
-    ghSetStatus('ok', 'Verbunden mit ' + owner + '/' + repo);
-    showToast('✓ Verbindung erfolgreich!');
-    // Auto-push after saving config
-    await ghPush();
+    ghSetStatus('ok', 'Verbunden als ' + user.login);
+    showToast('✓ Verbunden als ' + user.login);
+    await ghPushSafe();
   } catch(e) {
     ghSetStatus('err', 'Fehler: ' + e.message);
     showToast('Fehler: ' + e.message);
   }
 }
 
-async function ghGetFileSha() {
+async function ghPushSafe() {
+  if (ghPushInProgress) { ghPendingPush = true; return; }
+  ghPushInProgress = true;
+  ghPendingPush = false;
   try {
-    const res = await fetch(
-      `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
-      { headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' } }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      // data.sha is the blob SHA which is exactly what GitHub Contents API needs for updates
-      return data.sha || null;
+    await ghPush();
+  } finally {
+    ghPushInProgress = false;
+    if (ghPendingPush) {
+      ghPendingPush = false;
+      setTimeout(() => ghPushSafe(), 1000);
     }
-    if (res.status === 404) return null; // file doesn't exist yet, no SHA needed
-  } catch(e) {}
-  return null;
-}
-
-// Unicode-safe base64 encoding for GitHub API
-function toBase64(str) {
-  // Convert string to UTF-8 bytes then base64
-  const bytes = new TextEncoder().encode(str);
-  let binary = '';
-  bytes.forEach(b => binary += String.fromCharCode(b));
-  return btoa(binary);
+  }
 }
 
 async function ghPush() {
-  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+  if (!ghConfig.token) return;
   ghSetStatus('syncing', 'Wird gesichert…');
-
-  const apiUrl = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`;
-  const headers = {
-    Authorization: `Bearer ${ghConfig.token}`,
-    Accept: 'application/vnd.github+json',
-    'Content-Type': 'application/json'
-  };
-
   try {
     const payload = { userData, globalTags, savedAt: new Date().toISOString() };
-    const encoded = toBase64(JSON.stringify(payload, null, 2));
+    const jsonStr = JSON.stringify(payload, null, 2);
 
-    // Helper: do one PUT attempt
-    async function tryPut(sha) {
-      const body = { message: 'DDF Backup ' + new Date().toISOString(), content: encoded };
-      if (sha) body.sha = sha;
-      return fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
-    }
-
-    // Helper: get current SHA (returns null if file doesn't exist)
-    async function getSha() {
-      const r = await fetch(apiUrl, { headers });
-      if (r.ok) { const d = await r.json(); return d.sha || null; }
-      if (r.status === 404) return null;
-      throw new Error(`GET fehlgeschlagen: HTTP ${r.status}`);
-    }
-
-    // Attempt 1: get SHA then PUT
-    let sha = await getSha();
-    let putRes = await tryPut(sha);
-
-    // If SHA mismatch, get fresh SHA and try once more
-    if (!putRes.ok) {
-      const errData = await putRes.json().catch(() => ({}));
-      const errMsg = errData.message || '';
-      if (putRes.status === 422 || putRes.status === 409 || errMsg.includes('does not match')) {
-        sha = await getSha();
-        putRes = await tryPut(sha);
+    // Gist API: no SHA needed! Just PATCH with new content.
+    if (ghConfig.gistId) {
+      // Update existing gist
+      const res = await fetch('https://api.github.com/gists/' + ghConfig.gistId, {
+        method: 'PATCH',
+        headers: gistHeaders(ghConfig.token),
+        body: JSON.stringify({
+          description: 'DDF Tracker Backup',
+          files: { 'ddf-data.json': { content: jsonStr } }
+        })
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        // If gist not found (deleted), create new one
+        if (res.status === 404) {
+          delete ghConfig.gistId;
+          saveGhConfig();
+          return ghPush(); // retry as new gist
+        }
+        throw new Error(e.message || 'HTTP ' + res.status);
       }
-      if (!putRes.ok) {
-        const e2 = await putRes.json().catch(() => ({}));
-        throw new Error(e2.message || `HTTP ${putRes.status}`);
+    } else {
+      // Create new gist
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: gistHeaders(ghConfig.token),
+        body: JSON.stringify({
+          description: 'DDF Tracker Backup',
+          public: false,
+          files: { 'ddf-data.json': { content: jsonStr } }
+        })
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.message || 'HTTP ' + res.status);
       }
+      const data = await res.json();
+      ghConfig.gistId = data.id;
+      saveGhConfig();
     }
 
     const now = new Date().toLocaleString('de-DE');
@@ -1425,59 +1418,39 @@ async function ghPush() {
 }
 
 async function ghPull() {
-  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
-  if (!confirm('Lokale Daten werden mit dem GitHub-Backup überschrieben. Fortfahren?')) return;
+  if (!ghConfig.token || !ghConfig.gistId) {
+    showToast('Kein Backup vorhanden');
+    return;
+  }
+  if (!confirm('Lokale Daten werden mit dem Backup überschrieben. Fortfahren?')) return;
   ghSetStatus('syncing', 'Daten werden geladen…');
   try {
-    const res = await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`, {
-      headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' }
+    const res = await fetch('https://api.github.com/gists/' + ghConfig.gistId, {
+      headers: gistHeaders(ghConfig.token)
     });
-    if (!res.ok) throw new Error('Keine Backup-Datei gefunden');
-    const file = await res.json();
-    const decoded = decodeURIComponent(escape(atob(file.content.replace(/\n/g, ''))));
-    const data = JSON.parse(decoded);
+    if (!res.ok) throw new Error('Gist nicht gefunden');
+    const gist = await res.json();
+    const fileContent = gist.files?.['ddf-data.json']?.content;
+    if (!fileContent) throw new Error('Keine Daten im Gist');
+    const data = JSON.parse(fileContent);
     if (data.userData) userData = data.userData;
     if (data.globalTags) globalTags = data.globalTags;
     save();
     updateHeader(); renderTable(); renderSettings();
     ghSetStatus('ok', 'Daten geladen ✓');
-    showToast('⬇️ Daten aus GitHub geladen!');
+    showToast('⬇️ Daten aus Gist geladen!');
   } catch(e) {
     ghSetStatus('err', 'Fehler: ' + e.message);
     showToast('Laden fehlgeschlagen: ' + e.message);
   }
 }
 
-// Auto-backup: debounced + mutex to prevent concurrent pushes
-let ghPushInProgress = false;
-let ghPendingPush = false;
-
 function schedulGhBackup() {
   try {
-    if (!ghConfig || !ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
+    if (!ghConfig || !ghConfig.token) return;
     clearTimeout(ghSyncTimer);
     ghSyncTimer = setTimeout(() => ghPushSafe(), 5000);
   } catch(e) {}
-}
-
-async function ghPushSafe() {
-  // If already pushing, mark that we need another push after current one finishes
-  if (ghPushInProgress) {
-    ghPendingPush = true;
-    return;
-  }
-  ghPushInProgress = true;
-  ghPendingPush = false;
-  try {
-    await ghPush();
-  } finally {
-    ghPushInProgress = false;
-    // If another push was requested while we were pushing, do it now
-    if (ghPendingPush) {
-      ghPendingPush = false;
-      setTimeout(() => ghPushSafe(), 1000);
-    }
-  }
 }
 
 // ════════════════════════════════════
