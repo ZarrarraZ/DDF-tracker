@@ -54,8 +54,13 @@
     .hdr-prog-fill{height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold-l));border-radius:1px;transition:width .6s ease;}
 
     /* ── PAGES ── */
-    #pages{flex:1;overflow:hidden;position:relative;}
-    .page{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding-bottom:calc(var(--nav-h)+8px);}
+    #pages{flex:1;overflow:hidden;position:relative;min-height:0;}
+    .page{
+      position:absolute;top:0;left:0;right:0;bottom:0;
+      overflow-y:scroll;-webkit-overflow-scrolling:touch;
+      display:none;padding-bottom:calc(var(--nav-h)+16px);
+      overscroll-behavior:contain;
+    }
     .page.active{display:block;}
 
     /* ── NAV ── */
@@ -698,28 +703,68 @@ const coverCache = {}; // id -> url string
 
 async function getCoverUrl(ep) {
   const id = ep.id;
+  // 1. In-memory cache
   if (coverCache[id]) return coverCache[id];
-  const term = encodeURIComponent(`Die drei Fragezeichen ${ep.title}`);
-  try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${term}&entity=audiobook&country=de&limit=5`);
-    const data = await res.json();
-    if (data.results?.length) {
+  // 2. sessionStorage cache
+  const cached = sessionStorage.getItem('cover_' + id);
+  if (cached) { coverCache[id] = cached; return cached; }
+
+  const url = await fetchCoverFromItunes(ep);
+  if (url) {
+    coverCache[id] = url;
+    try { sessionStorage.setItem('cover_' + id, url); } catch(e) {}
+  }
+  return url;
+}
+
+async function fetchCoverFromItunes(ep) {
+  // iTunes API requires a CORS proxy when called from browser
+  // We try multiple approaches
+  let term;
+  if (ep.type === 'normal' && typeof ep.nr === 'number') {
+    term = `Die drei Fragezeichen ${ep.nr} ${ep.title}`;
+  } else {
+    term = `Die drei Fragezeichen ${ep.title}`;
+  }
+  const q = encodeURIComponent(term);
+  const itunesUrl = `https://itunes.apple.com/search?term=${q}&entity=audiobook&country=de&limit=8`;
+
+  // Try 1: Direct (works when app is hosted on https://)
+  // Try 2: allorigins proxy
+  // Try 3: corsproxy.io
+  const attempts = [
+    itunesUrl,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(itunesUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(itunesUrl)}`,
+  ];
+
+  for (const url of attempts) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (!data.results?.length) continue;
+
       const scored = data.results.map(r => {
         const n = (r.collectionName || r.trackName || '').toLowerCase();
         let s = 0;
-        if (n.includes('drei')) s += 3;
-        if (n.includes('???') || n.includes('fragezeichen')) s += 3;
-        ep.title.toLowerCase().split(' ').forEach(w => { if (w.length > 3 && n.includes(w)) s++; });
+        if (n.includes('drei')) s += 4;
+        if (n.includes('???') || n.includes('fragezeichen')) s += 4;
+        if (n.includes('europa')) s += 2;
+        ep.title.toLowerCase().split(' ').forEach(w => {
+          if (w.length > 3 && n.includes(w)) s += 2;
+        });
+        if (r.artworkUrl100) s += 1;
         return { r, s };
       }).sort((a,b) => b.s - a.s);
+
       const best = scored[0]?.r;
       if (best?.artworkUrl100) {
-        const url = best.artworkUrl100.replace('100x100bb', '400x400bb');
-        coverCache[id] = url;
-        return url;
+        return best.artworkUrl100.replace('100x100bb', '400x400bb');
       }
-    }
-  } catch(e) {}
+    } catch(e) { /* try next */ }
+  }
   return null;
 }
 
@@ -1399,34 +1444,44 @@ async function ghGetFileSha() {
   return null;
 }
 
-async function ghPush() {
+async function ghPush(retries = 2) {
   if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
   ghSetStatus('syncing', 'Wird gesichert…');
   try {
     const payload = { userData, globalTags, savedAt: new Date().toISOString() };
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    // Always fetch fresh SHA immediately before writing
     const sha = await ghGetFileSha();
     const body = {
-      message: `Backup ${new Date().toLocaleString('de-DE')}`,
-      content,
+      message: 'Backup ' + new Date().toLocaleString('de-DE'),
+      content: encoded,
       ...(sha ? { sha } : {})
     };
-    const res = await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${ghConfig.token}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${ghConfig.token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      }
+    );
+    if (res.status === 409 && retries > 0) {
+      // SHA conflict - file was updated externally, retry with fresh SHA
+      await new Promise(r => setTimeout(r, 500));
+      return ghPush(retries - 1);
+    }
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Unbekannter Fehler');
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
     }
     const now = new Date().toLocaleString('de-DE');
     localStorage.setItem('ddf_gh_last', now);
-    document.getElementById('gh-last-sync').textContent = 'Zuletzt gesichert: ' + now;
+    const el = document.getElementById('gh-last-sync');
+    if (el) el.textContent = 'Zuletzt gesichert: ' + now;
     ghSetStatus('ok', 'Gesichert ✓');
     showToast('☁️ Backup gespeichert!');
   } catch(e) {
