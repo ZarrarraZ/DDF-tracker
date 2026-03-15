@@ -723,54 +723,78 @@ async function getCoverUrl(ep) {
 }
 
 async function fetchCoverFromItunes(ep) {
-  // iTunes API requires a CORS proxy when called from browser
-  // We try multiple approaches
-  let term;
-  if (ep.type === 'normal' && typeof ep.nr === 'number') {
-    term = `Die drei Fragezeichen ${ep.nr} ${ep.title}`;
-  } else {
-    term = `Die drei Fragezeichen ${ep.title}`;
-  }
+  // Strategy 1: iTunes via allorigins proxy (most reliable, has CORS headers)
+  // Strategy 2: MusicBrainz + Cover Art Archive (fully open, always CORS-enabled)
+  // Strategy 3: iTunes direct (works on https://)
+
+  let term = ep.type === 'normal' && typeof ep.nr === 'number'
+    ? `Die drei Fragezeichen ${ep.nr} ${ep.title}`
+    : `Die drei Fragezeichen ${ep.title}`;
   const q = encodeURIComponent(term);
-  const itunesUrl = `https://itunes.apple.com/search?term=${q}&entity=audiobook&country=de&limit=8`;
 
-  // Try 1: Direct (works when app is hosted on https://)
-  // Try 2: allorigins proxy
-  // Try 3: corsproxy.io
-  const attempts = [
-    itunesUrl,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(itunesUrl)}`,
-    `https://corsproxy.io/?${encodeURIComponent(itunesUrl)}`,
-  ];
+  // ── Strategy 1: allorigins → iTunes ──
+  try {
+    const itunesUrl = `https://itunes.apple.com/search?term=${q}&entity=audiobook&country=de&limit=8`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(itunesUrl)}`;
+    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = JSON.parse(await res.text());
+      const url = bestItunesResult(data.results, ep);
+      if (url) return url;
+    }
+  } catch(e) {}
 
-  for (const url of attempts) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
-      const text = await res.text();
-      const data = JSON.parse(text);
-      if (!data.results?.length) continue;
-
-      const scored = data.results.map(r => {
-        const n = (r.collectionName || r.trackName || '').toLowerCase();
-        let s = 0;
-        if (n.includes('drei')) s += 4;
-        if (n.includes('???') || n.includes('fragezeichen')) s += 4;
-        if (n.includes('europa')) s += 2;
-        ep.title.toLowerCase().split(' ').forEach(w => {
-          if (w.length > 3 && n.includes(w)) s += 2;
-        });
-        if (r.artworkUrl100) s += 1;
-        return { r, s };
-      }).sort((a,b) => b.s - a.s);
-
-      const best = scored[0]?.r;
-      if (best?.artworkUrl100) {
-        return best.artworkUrl100.replace('100x100bb', '400x400bb');
+  // ── Strategy 2: MusicBrainz (open API, CORS allowed) ──
+  try {
+    const mbUrl = `https://musicbrainz.org/ws/2/release/?query=release:"${encodeURIComponent(ep.title)}"+artist:"EUROPA"&fmt=json&limit=3`;
+    const mbRes = await fetch(mbUrl, {
+      headers: { 'User-Agent': 'DDFTracker/1.0 (personal)' },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (mbRes.ok) {
+      const mbData = await mbRes.json();
+      const release = mbData.releases?.[0];
+      if (release?.id) {
+        // Get cover from Cover Art Archive (always CORS-enabled)
+        const caaUrl = `https://coverartarchive.org/release/${release.id}/front-250`;
+        const caaRes = await fetch(caaUrl, { signal: AbortSignal.timeout(6000) });
+        if (caaRes.ok && caaRes.headers.get('content-type')?.startsWith('image/')) {
+          return caaUrl;
+        }
       }
-    } catch(e) { /* try next */ }
-  }
+    }
+  } catch(e) {}
+
+  // ── Strategy 3: iTunes direct (works on https://) ──
+  try {
+    const directUrl = `https://itunes.apple.com/search?term=${q}&entity=audiobook&country=de&limit=8`;
+    const res = await fetch(directUrl, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      const url = bestItunesResult(data.results, ep);
+      if (url) return url;
+    }
+  } catch(e) {}
+
   return null;
+}
+
+function bestItunesResult(results, ep) {
+  if (!results?.length) return null;
+  const scored = results.map(r => {
+    const n = (r.collectionName || r.trackName || '').toLowerCase();
+    let s = 0;
+    if (n.includes('drei')) s += 4;
+    if (n.includes('???') || n.includes('fragezeichen')) s += 4;
+    if (n.includes('europa')) s += 2;
+    ep.title.toLowerCase().split(' ').forEach(w => {
+      if (w.length > 3 && n.includes(w)) s += 2;
+    });
+    if (r.artworkUrl100) s += 1;
+    return { r, s };
+  }).sort((a,b) => b.s - a.s);
+  const best = scored[0]?.r;
+  return best?.artworkUrl100 ? best.artworkUrl100.replace('100x100bb', '400x400bb') : null;
 }
 
 // ════════════════════════════════════
@@ -1443,79 +1467,85 @@ async function ghSave() {
 
 async function ghGetFileSha() {
   try {
-    const res = await fetch(`https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`, {
-      headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' }
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`,
+      { headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' } }
+    );
     if (res.ok) {
       const data = await res.json();
-      return data.sha;
+      // data.sha is the blob SHA which is exactly what GitHub Contents API needs for updates
+      return data.sha || null;
     }
+    if (res.status === 404) return null; // file doesn't exist yet, no SHA needed
   } catch(e) {}
   return null;
 }
 
-// Unicode-safe base64 encoding
+// Unicode-safe base64 encoding for GitHub API
 function toBase64(str) {
-  return btoa(unescape(encodeURIComponent(str)));
+  // Convert string to UTF-8 bytes then base64
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary);
 }
 
 async function ghPush() {
   if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) return;
   ghSetStatus('syncing', 'Wird gesichert…');
+
+  const apiUrl = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`;
+  const headers = {
+    Authorization: `Bearer ${ghConfig.token}`,
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
+
   try {
     const payload = { userData, globalTags, savedAt: new Date().toISOString() };
-    const jsonStr = JSON.stringify(payload, null, 2);
-    const encoded = toBase64(jsonStr);
-    const apiUrl = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/data.json`;
-    const headers = {
-      Authorization: `Bearer ${ghConfig.token}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json'
-    };
+    const encoded = toBase64(JSON.stringify(payload, null, 2));
 
-    // Step 1: Always get the very latest SHA from GitHub right now
+    // Step 1: Get current file SHA (needed for update, not for first create)
     let sha = null;
-    try {
-      const check = await fetch(apiUrl, { headers });
-      if (check.ok) {
-        const fileData = await check.json();
-        sha = fileData.sha;
-      }
-    } catch(e) {}
+    const getRes = await fetch(apiUrl, { headers });
+    if (getRes.ok) {
+      const fileInfo = await getRes.json();
+      sha = fileInfo.sha;
+    }
+    // If 404, file doesn't exist yet – that's fine, sha stays null
 
-    // Step 2: Push with that SHA
-    const body = {
-      message: 'Backup ' + new Date().toLocaleString('de-DE'),
-      content: encoded
-    };
+    // Step 2: Write file (GET and PUT close together to minimize stale SHA risk)
+    const body = { message: 'DDF Backup ' + new Date().toISOString(), content: encoded };
     if (sha) body.sha = sha;
 
-    const res = await fetch(apiUrl, {
+    const putRes = await fetch(apiUrl, {
       method: 'PUT', headers, body: JSON.stringify(body)
     });
 
-    // Step 3: If still SHA mismatch, try once more with fresh SHA
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      if (res.status === 409 || (err.message || '').includes('does not match')) {
-        // Wait briefly then get truly fresh SHA
-        await new Promise(r => setTimeout(r, 1000));
-        const check2 = await fetch(apiUrl, { headers });
-        if (check2.ok) {
-          const fd2 = await check2.json();
-          body.sha = fd2.sha;
+    if (!putRes.ok) {
+      const errData = await putRes.json().catch(() => ({}));
+      const errMsg = errData.message || `HTTP ${putRes.status}`;
+
+      // SHA mismatch: file was updated between our GET and PUT
+      // Solution: fetch SHA again and retry immediately
+      if (putRes.status === 422 || putRes.status === 409 || errMsg.includes('does not match')) {
+        const getRes2 = await fetch(apiUrl, { headers });
+        if (getRes2.ok) {
+          const fi2 = await getRes2.json();
+          body.sha = fi2.sha;
+          body.message = 'DDF Backup (retry) ' + new Date().toISOString();
+          const putRes2 = await fetch(apiUrl, {
+            method: 'PUT', headers, body: JSON.stringify(body)
+          });
+          if (!putRes2.ok) {
+            const e2 = await putRes2.json().catch(() => ({}));
+            throw new Error('Retry fehlgeschlagen: ' + (e2.message || `HTTP ${putRes2.status}`));
+          }
         } else {
-          delete body.sha; // file might not exist yet
-        }
-        const retry = await fetch(apiUrl, {
-          method: 'PUT', headers, body: JSON.stringify(body)
-        });
-        if (!retry.ok) {
-          const e2 = await retry.json().catch(() => ({}));
-          throw new Error(e2.message || `HTTP ${retry.status}`);
+          throw new Error('SHA-Fehler: Datei nicht abrufbar');
         }
       } else {
-        throw new Error(err.message || `HTTP ${res.status}`);
+        throw new Error(errMsg);
       }
     }
 
